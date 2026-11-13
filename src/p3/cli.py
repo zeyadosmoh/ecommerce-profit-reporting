@@ -75,6 +75,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_summary(args: argparse.Namespace) -> int:
+    from p3.summary import build_summary
+
+    with connect(get_settings()) as conn:
+        print(build_summary(conn))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="p3", description="E-commerce profit reporting (synthetic data)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -98,6 +106,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("ingest", help="incremental load from the store API + cost sheet into raw tables")
     p.add_argument("--cost-source", default=None, help="override COST_SHEET_SOURCE (file path or http(s) URL)")
     p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("summary", help="row counts, rejects, recent runs and reproduce commands")
+    p.set_defaults(func=cmd_summary)
 
     return parser
 
