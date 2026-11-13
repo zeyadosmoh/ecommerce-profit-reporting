@@ -38,6 +38,23 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    from p3.generate import load_store_files
+    from p3.mock_api.app import create_app
+    from p3.mock_api.store import MockStore
+
+    settings = get_settings()
+    store = MockStore(*load_store_files(settings.data_dir))
+    app = create_app(store, settings.store_api_key, settings.store_api_secret, inject_faults=args.inject_faults)
+    print(SYNTHETIC_NOTICE)
+    if args.inject_faults:
+        print(f"WARNING: fault injection ON - {args.inject_faults} orders will be served malformed.")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="p3", description="E-commerce profit reporting (synthetic data)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -50,6 +67,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=None, help="override GEN_SEED")
     p.add_argument("--out", type=Path, default=None, help="output directory (default DATA_DIR)")
     p.set_defaults(func=cmd_generate)
+
+    p = sub.add_parser("serve", help="run the mock WooCommerce-style store API")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8008)
+    p.add_argument("--inject-faults", type=int, default=0, metavar="N",
+                   help="serve N orders malformed to exercise the reject path (default 0 = off)")
+    p.set_defaults(func=cmd_serve)
 
     return parser
 
