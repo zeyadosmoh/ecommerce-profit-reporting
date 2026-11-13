@@ -55,6 +55,26 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ingest(args: argparse.Namespace) -> int:
+    from p3.ingest.client import StoreClient
+    from p3.ingest.pipeline import run_ingest
+
+    settings = get_settings()
+    client = StoreClient.from_settings(settings)
+    try:
+        result = run_ingest(settings.dsn(), client, args.cost_source or settings.cost_sheet_source)
+    except Exception as exc:  # the run is already logged as failed in raw.etl_runs
+        print(f"Ingestion FAILED: {type(exc).__name__}: {exc}")
+        return 1
+    print(f"Run {result.run_id}: {result.status}")
+    print(f"  {'entity':<10}{'read':>7}{'inserted':>10}{'updated':>9}{'unchanged':>11}{'rejected':>10}")
+    for entity, s in result.stats.items():
+        print(f"  {entity:<10}{s.read:>7}{s.inserted:>10}{s.updated:>9}{s.unchanged:>11}{s.rejected:>10}")
+    print(f"  order lines written: {result.stats['orders'].extra.get('lines_written', 0)}")
+    print(f"  totals: read={result.rows_read} upserted={result.rows_upserted} rejected={result.rows_rejected}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="p3", description="E-commerce profit reporting (synthetic data)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +94,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--inject-faults", type=int, default=0, metavar="N",
                    help="serve N orders malformed to exercise the reject path (default 0 = off)")
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("ingest", help="incremental load from the store API + cost sheet into raw tables")
+    p.add_argument("--cost-source", default=None, help="override COST_SHEET_SOURCE (file path or http(s) URL)")
+    p.set_defaults(func=cmd_ingest)
 
     return parser
 
