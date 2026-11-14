@@ -53,8 +53,8 @@ footer { margin-top:14px; color:var(--muted); font-size:9px; border-top:1px soli
 <section class="summary avoid-break">
   <h2 style="margin-top:0">Summary</h2>
   
-  <ul dir="ltr"><li>Net revenue after refunds fell 20.0% to SAR 30,247.12 (previous week SAR 37,809.69); orders fell to 114.</li><li>Net profit on known-cost lines fell 14.7% to SAR 11,481.12, while net margin on known-cost lines rose 2.84 percentage points to 40.17%.</li><li>Product movers: the biggest profit drop was Amber Nights EDP 100ml at SAR 0.00 vs a 4-week average of SAR 382.44; the biggest gain was Majlis Floor Cushion at SAR 701.82 vs SAR 155.98.</li><li>Shipping cost exceeded shipping charged by SAR 1,469.90: SAR 1,411.00 from 49 free-shipping orders and SAR 58.90 from paid-shipping orders; the free-shipping threshold is a possible lever on profit.</li><li>20 order lines (SAR 1,666.03 of revenue) have no cost row and are excluded from profit, not counted as zero cost.</li><li>Recommended action: add cost rows for ACC-006, HOM-006 to the cost sheet so their profit can be measured.</li></ul>
-  <div class="src">Template summary (deterministic, no AI) · no API key (GEMINI_API_KEY / LLM_API_KEY not set)</div>
+  <ul dir="ltr"><li>This week, net revenue decreased to 30,247.12 SAR, net profit (known cost) decreased to 11,481.12 SAR, and net margin on known-cost lines increased to 40.17%.</li><li>Profit was helped by lower COGS of 14,582.24 SAR and a decreased shipping subsidy of 1,469.90 SAR, while being hurt by lower gross sales of 31,003.28 SAR; product risers included Majlis Floor Cushion and Oud Royal Eau de Parfum 50ml, while Amber Nights EDP 100ml had no sales this week.</li><li>There is a missing-cost warning with 20 missing-cost lines this week representing 1,666.03 SAR in excluded revenue.</li><li>Recommended action: Assign cost records to the 20 missing-cost lines to accurately track profitability across all product categories.</li></ul>
+  <div class="src">AI summary — every number checked against facts.json · gemini gemini-3.5-flash-lite</div>
 </section>
 
 <h2>Key numbers (SAR, ex-VAT) <span class="sub" style="font-weight:normal">· vs previous week</span></h2>
@@ -182,37 +182,37 @@ footer { margin-top:14px; color:var(--muted); font-size:9px; border-top:1px soli
   
   <tr><td class="good">Up</td>
       <td><span class="num">HOM-001</span> Majlis Floor Cushion</td>
-      <td class="r num">701.82</td><td class="r num">155.98</td>
+      <td class="r"><span class="num">701.82</span></td><td class="r num">155.98</td>
       <td class="r num good">+545.84 (+349.9%)</td>
       <td class="r num">+1,358.66 (+363.8%)</td></tr>
   
   <tr><td class="good"></td>
       <td><span class="num">PRF-001</span> Oud Royal Eau de Parfum 50ml</td>
-      <td class="r num">1,153.32</td><td class="r num">917.77</td>
+      <td class="r"><span class="num">1,153.32</span></td><td class="r num">917.77</td>
       <td class="r num good">+235.55 (+25.7%)</td>
       <td class="r num">+422.82 (+26.3%)</td></tr>
   
   <tr><td class="good"></td>
       <td><span class="num">PRF-007</span> Discovery Set 5x8ml</td>
-      <td class="r num">884.82</td><td class="r num">671.98</td>
+      <td class="r"><span class="num">884.82</span></td><td class="r num">671.98</td>
       <td class="r num good">+212.84 (+31.7%)</td>
       <td class="r num">+425.15 (+39.8%)</td></tr>
   
   <tr><td class="bad">Down</td>
       <td><span class="num">PRF-003</span> Amber Nights EDP 100ml</td>
-      <td class="r num">0.00</td><td class="r num">382.44</td>
+      <td class="r"><span class="sub">no sales this week</span></td><td class="r num">382.44</td>
       <td class="r num bad">-382.44 (-100.0%)</td>
       <td class="r num">-640.25 (-100.0%)</td></tr>
   
   <tr><td class="bad"></td>
       <td><span class="num">ABY-002</span> Linen Kimono Abaya</td>
-      <td class="r num">149.02</td><td class="r num">468.87</td>
+      <td class="r"><span class="num">149.02</span></td><td class="r num">468.87</td>
       <td class="r num bad">-319.85 (-68.2%)</td>
       <td class="r num">-660.07 (-68.5%)</td></tr>
   
   <tr><td class="bad"></td>
       <td><span class="num">ABY-003</span> Embroidered Bisht Abaya</td>
-      <td class="r num">574.91</td><td class="r num">867.68</td>
+      <td class="r"><span class="num">574.91</span></td><td class="r num">867.68</td>
       <td class="r num bad">-292.77 (-33.7%)</td>
       <td class="r num">-686.25 (-32.4%)</td></tr>
   

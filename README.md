@@ -251,7 +251,7 @@ statuses, plus a `unique_combination` test.
 - **Logged in `facts.json`** under `ai_summary`: the model, prompt version, every attempt (tokens, unmatched numbers), the verification result and a cost estimate. Prices come from `LLM_PRICE_INPUT_PER_MTOK` / `LLM_PRICE_OUTPUT_PER_MTOK` in `.env`; if they are unset, the log says "pricing not configured".
 - **Known limitation:** a wrong number can still pass if it happens to equal an unrelated fact. The direction check and the small fact set reduce this risk.
 
-**Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. These samples were generated **with the template summary**, because no `GEMINI_API_KEY` was set in `.env` (`ai_summary.source = "template"`, `status = "no_llm"` in `facts.json` / `facts.ar.json`). Rerun `p3 report --out docs/sample-report --preview` with a key to get AI summaries.
+**Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. Both samples use a **real Gemini AI summary** (`gemini-3.5-flash-lite`, prompt v2). Each passed the number and direction check on the first attempt: `ai_summary.source = "llm"` and `status = "verified"` in `facts.json` / `facts.ar.json`, which also log the tokens and the cost estimate (null: pricing not configured). Regenerate them with `p3 report --out docs/sample-report --preview` and `--lang ar`.
 
 | English | Arabic |
 |---|---|

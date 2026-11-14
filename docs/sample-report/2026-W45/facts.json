@@ -364,6 +364,7 @@
    {
     "sku": "HOM-001",
     "product": "Majlis Floor Cushion",
+    "sold_this_week": true,
     "net_revenue_this_week": 1732.16,
     "net_revenue_prev4_avg": 373.5,
     "revenue_change": {
@@ -382,6 +383,7 @@
    {
     "sku": "PRF-001",
     "product": "Oud Royal Eau de Parfum 50ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 2029.56,
     "net_revenue_prev4_avg": 1606.74,
     "revenue_change": {
@@ -400,6 +402,7 @@
    {
     "sku": "PRF-007",
     "product": "Discovery Set 5x8ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 1493.21,
     "net_revenue_prev4_avg": 1068.06,
     "revenue_change": {
@@ -420,6 +423,7 @@
    {
     "sku": "PRF-003",
     "product": "Amber Nights EDP 100ml",
+    "sold_this_week": false,
     "net_revenue_this_week": 0.0,
     "net_revenue_prev4_avg": 640.25,
     "revenue_change": {
@@ -438,6 +442,7 @@
    {
     "sku": "ABY-002",
     "product": "Linen Kimono Abaya",
+    "sold_this_week": true,
     "net_revenue_this_week": 303.48,
     "net_revenue_prev4_avg": 963.55,
     "revenue_change": {
@@ -456,6 +461,7 @@
    {
     "sku": "ABY-003",
     "product": "Embroidered Bisht Abaya",
+    "sold_this_week": true,
     "net_revenue_this_week": 1432.17,
     "net_revenue_prev4_avg": 2118.42,
     "revenue_change": {
@@ -476,6 +482,7 @@
    {
     "sku": "ACC-006",
     "product": "Magnetic Car Mount",
+    "sold_this_week": true,
     "net_revenue_this_week": 718.22,
     "net_revenue_prev4_avg": 856.73,
     "revenue_change": {
@@ -487,6 +494,7 @@
    {
     "sku": "HOM-006",
     "product": "Oud Reed Diffuser 200ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 947.81,
     "net_revenue_prev4_avg": 674.13,
     "revenue_change": {
@@ -551,39 +559,42 @@
  },
  "ai_summary": {
   "language": "en",
-  "provider": null,
-  "model": null,
-  "prompt_version": "1",
-  "prompt_sha256": "159fd94bd685",
-  "attempts": [],
-  "source": "template",
-  "status": "no_llm",
-  "reason": "no API key (GEMINI_API_KEY / LLM_API_KEY not set)",
-  "template_verification": {
-   "passed": true,
-   "numbers_checked": 19,
-   "unmatched_numbers": [],
-   "problems": []
-  },
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "prompt_version": "2",
+  "prompt_sha256": "e327a7922bfc",
+  "attempts": [
+   {
+    "attempt": 1,
+    "input_tokens": 6193,
+    "output_tokens": 209,
+    "passed": true,
+    "numbers_checked": 9,
+    "unmatched_numbers": [],
+    "problems": [],
+    "text": "- This week, net revenue decreased to 30,247.12 SAR, net profit (known cost) decreased to 11,481.12 SAR, and net margin on known-cost lines increased to 40.17%.\n- Profit was helped by lower COGS of 14,582.24 SAR and a decreased shipping subsidy of 1,469.90 SAR, while being hurt by lower gross sales of 31,003.28 SAR; product risers included Majlis Floor Cushion and Oud Royal Eau de Parfum 50ml, while Amber Nights EDP 100ml had no sales this week.\n- There is a missing-cost warning with 20 missing-cost lines this week representing 1,666.03 SAR in excluded revenue.\n- Recommended action: Assign cost records to the 20 missing-cost lines to accurately track profitability across all product categories."
+   }
+  ],
+  "source": "llm",
+  "status": "verified",
+  "reason": null,
   "tokens": {
-   "input": 0,
-   "output": 0
+   "input": 6193,
+   "output": 209
   },
   "cost_estimate_usd": null,
   "cost_note": "pricing not configured",
   "bullets": [
-   "Net revenue after refunds fell 20.0% to SAR 30,247.12 (previous week SAR 37,809.69); orders fell to 114.",
-   "Net profit on known-cost lines fell 14.7% to SAR 11,481.12, while net margin on known-cost lines rose 2.84 percentage points to 40.17%.",
-   "Product movers: the biggest profit drop was Amber Nights EDP 100ml at SAR 0.00 vs a 4-week average of SAR 382.44; the biggest gain was Majlis Floor Cushion at SAR 701.82 vs SAR 155.98.",
-   "Shipping cost exceeded shipping charged by SAR 1,469.90: SAR 1,411.00 from 49 free-shipping orders and SAR 58.90 from paid-shipping orders; the free-shipping threshold is a possible lever on profit.",
-   "20 order lines (SAR 1,666.03 of revenue) have no cost row and are excluded from profit, not counted as zero cost.",
-   "Recommended action: add cost rows for ACC-006, HOM-006 to the cost sheet so their profit can be measured."
+   "This week, net revenue decreased to 30,247.12 SAR, net profit (known cost) decreased to 11,481.12 SAR, and net margin on known-cost lines increased to 40.17%.",
+   "Profit was helped by lower COGS of 14,582.24 SAR and a decreased shipping subsidy of 1,469.90 SAR, while being hurt by lower gross sales of 31,003.28 SAR; product risers included Majlis Floor Cushion and Oud Royal Eau de Parfum 50ml, while Amber Nights EDP 100ml had no sales this week.",
+   "There is a missing-cost warning with 20 missing-cost lines this week representing 1,666.03 SAR in excluded revenue.",
+   "Recommended action: Assign cost records to the 20 missing-cost lines to accurately track profitability across all product categories."
   ],
   "notice": null
  },
  "report": {
   "language": "en",
-  "generated_at": "2026-11-14T01:53:53+00:00",
+  "generated_at": "2026-11-14T02:01:36+00:00",
   "files": [
    "report.html",
    "report.pdf",
