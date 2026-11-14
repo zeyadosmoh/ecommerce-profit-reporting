@@ -320,3 +320,37 @@ def test_counts_written_as_money_fail(text: str, ok: bool) -> None:
     assert all(c.ok for c in checks) is ok, [(c.text, c.reason) for c in checks]
     if not ok:
         assert any("written as SAR but the fact is a count" in (c.reason or "") for c in checks)
+
+
+# ---- v6: no circular repetition, top 2 drivers cited ----------------------------------------------
+
+def bullet_problems(text: str, lang: str = "en") -> list[str]:
+    return verify_summary(text, DRIVER_FACTS, min_bullets=1, max_bullets=6, lang=lang).problems
+
+
+@pytest.mark.parametrize("bullet,ok", [
+    ("Net revenue fell SAR 7,491.87, driven by net revenue falling SAR 7,491.87.", False),
+    ("Net revenue fell SAR 7,491.87 (7.5k), which hurt profit.", False),  # same fact, rounded differently
+    ("Net revenue fell SAR 7,491.87, which hurt profit, while COGS fell SAR 4,607.80, which helped.", True),
+    ("Product X earned SAR 100 vs a 4-week average; product Y vs a 4-week average too.", True),  # constants exempt
+    ("انخفض صافي الإيرادات 7,491.87 ريال بسبب انخفاض صافي الإيرادات 7,491.87 ريال.", False),
+    ("انخفض صافي الإيرادات 7,491.87 ريال مما أضر بالربح، بينما انخفضت تكلفة البضاعة المباعة 4,607.80 ريال.", True),
+])
+def test_no_fact_number_twice_in_one_bullet(bullet: str, ok: bool) -> None:
+    from p3.summary.verify import repeated_numbers
+
+    checks = [check_numbers(bullet, {**DRIVER_FACTS, "constants": {"movers_window_weeks": 4}, "x": {"y": 100.0}})]
+    assert (repeated_numbers([bullet], checks) == []) is ok, repeated_numbers([bullet], checks)
+
+
+@pytest.mark.parametrize("text,lang,missing", [
+    ("- Net revenue on known-cost lines fell SAR 7,491.87, which hurt profit.\n"
+     "- COGS fell SAR 4,607.80, which helped profit.", "en", 0),
+    ("- Net revenue on known-cost lines fell SAR 7,491.87, which hurt profit.", "en", 1),  # COGS offset missing
+    ("- Net profit fell 14.7%.", "en", 2),
+    ("- انخفض صافي الإيرادات 7,491.87 ريال مما أضر بالربح.\n- انخفضت تكلفة البضاعة المباعة 4,607.80 ريال مما دعم الربح.", "ar", 0),
+    ("- انخفض صافي الإيرادات 7,491.87 ريال مما أضر بالربح.", "ar", 1),
+])
+def test_top_two_drivers_must_be_cited(text: str, lang: str, missing: int) -> None:
+    problems = [p for p in bullet_problems(text, lang) if "is not cited" in p]
+    assert len(problems) == missing, problems

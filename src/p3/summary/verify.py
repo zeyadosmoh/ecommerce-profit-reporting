@@ -257,7 +257,8 @@ def check_numbers(text: str, facts: dict) -> list[NumberCheck]:
             else:
                 checks.append(NumberCheck(token, str(target), True, matched=paths[0], tolerance=tol, paths=paths))
         elif levels:
-            checks.append(NumberCheck(token, str(target), True, matched=levels[0].path, tolerance=tol))
+            checks.append(NumberCheck(token, str(target), True, matched=levels[0].path, tolerance=tol,
+                                      paths=[f.path for f in levels]))
         elif changes:
             checks.append(NumberCheck(token, str(target), False, matched=changes[0].path, tolerance=tol,
                                       reason=f"direction contradicts facts ({changes[0].path} is "
@@ -331,6 +332,38 @@ def unhedged_causal_claims(bullets: list[str], checks: list[list[NumberCheck]] |
     return problems
 
 
+def repeated_numbers(bullets: list[str], checks: list[list[NumberCheck]]) -> list[str]:
+    """A fact number may appear only once per bullet ("revenue fell X, driven by revenue falling X" is circular).
+    Constants (the 4-week window, the 299 SAR threshold) are exempt."""
+    problems = []
+    for i, bullet_checks in enumerate(checks):
+        seen: list[tuple[set[str], str]] = []
+        for c in bullet_checks:
+            paths = {p for p in c.paths if not p.startswith("constants.")}
+            if not c.ok or not paths:
+                continue
+            twice = next((text for earlier, text in seen if earlier & paths), None)
+            if twice is not None:
+                problems.append(f"bullet {i + 1}: the number {c.text} appears twice (also as {twice}); "
+                                "never give a figure as its own cause")
+            seen.append((paths, c.text))
+    return problems
+
+
+def missing_top_drivers(facts: dict, checks: list[NumberCheck], top_n: int = 2) -> list[str]:
+    """The top profit drivers (by absolute effect) must each be cited by their change (amount or %)."""
+    drivers = (facts.get("profit_drivers") or {}).get("drivers") or []
+    problems = []
+    for idx, d in enumerate(drivers[:top_n]):
+        if d.get("effect") == "none":
+            continue
+        prefix = f"profit_drivers.drivers[{idx}].change."
+        if not any(c.ok and any(p.startswith(prefix) for p in c.paths) for c in checks):
+            problems.append(f"profit driver #{idx + 1} ({d['label']}, {d['effect']} profit, change "
+                            f"{d['change']['abs']}) is not cited")
+    return problems
+
+
 def mentions_key_number(checks: list[NumberCheck], insight: dict) -> bool:
     """True if a verified number in the text equals the insight's key number (or its relative change in %)."""
     wanted = [Decimal(str(insight[k])) for k in ("key_number", "key_number_pct") if insight.get(k) is not None]
@@ -359,6 +392,8 @@ def verify_summary(text: str, facts: dict, min_bullets: int = 4, max_bullets: in
     per_bullet = [check_numbers(b, facts) for b in bullets]
     numbers = [c for checks in per_bullet for c in checks]
     problems += unhedged_causal_claims(bullets, per_bullet)
+    problems += repeated_numbers(bullets, per_bullet)
+    problems += missing_top_drivers(facts, numbers)
     insights = facts.get("insights") or []
     if insights and not mentions_key_number(numbers, insights[0]):
         top = insights[0]

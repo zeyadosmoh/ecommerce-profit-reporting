@@ -49,7 +49,8 @@ def _english(f: dict) -> list[str]:
         f"Net profit on known-cost lines {_en_dir(profit['change'])} {_abs_pct(profit['change'])} "
         f"(SAR {abs(profit['change']['abs']):,.2f}) to SAR {profit['this_week']:,.2f}, while net margin on known-cost "
         f"lines {_en_dir(margin['change'])} {abs(margin['change']['abs']):.2f} percentage points to {margin['this_week']:.2f}%.",
-        f"Largest profit drivers: {drivers}. Orders {_en_dir(k['orders']['change'])} to {k['orders']['this_week']}.",
+        f"Largest profit drivers: {drivers}. Orders {_en_dir(k['orders']['change'])} from "
+        f"{k['orders']['previous_week']} to {k['orders']['this_week']}.",
     ]
     movers_text = []
     if movers["fallers"]:
@@ -93,7 +94,7 @@ def _arabic(f: dict) -> list[str]:
         f"({abs(profit['change']['abs']):,.2f} ريال) إلى {_thousands_ar(profit['this_week'])}، في حين "
         f"{_ar_dir(margin['change'])} هامش صافي الربح {abs(margin['change']['abs']):.2f} نقطة مئوية إلى "
         f"{margin['this_week']:.2f}%.",
-        f"أكبر محركات الربح: {drivers}. وبلغ عدد الطلبات {k['orders']['this_week']}.",
+        f"أكبر محركات الربح: {drivers}. وتغير عدد الطلبات من {k['orders']['previous_week']} إلى {k['orders']['this_week']}.",
     ]
     if movers["fallers"]:
         m = movers["fallers"][0]

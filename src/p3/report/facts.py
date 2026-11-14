@@ -229,10 +229,9 @@ def build_profit_drivers(facts: dict, week: dict, prev: dict) -> dict:
                  "effects sum exactly to the net profit change",
         "net_profit_change": {"abs": float(np_change), "unit": "SAR", "direction": direction(np_change)},
         "drivers": [{"rank": d.pop("rank"), **d} for d in drivers],
-        "context": {"orders": {"this_week": k["orders"]["this_week"], "change": k["orders"]["change"]},
-                    "aov_ex_vat_products": {"this_week": k["aov_ex_vat_products"]["this_week"],
-                                            "change": k["aov_ex_vat_products"]["change"]},
-                    "units_sold": {"this_week": k["units_sold"]["this_week"], "change": k["units_sold"]["change"]}},
+        "context": {name: {"unit": k[name]["unit"], "previous_week": k[name]["previous_week"],
+                           "this_week": k[name]["this_week"], "change": k[name]["change"]}
+                    for name in ("orders", "aov_ex_vat_products", "units_sold")},
         "missing_cost_revenue_change": {**gap_change, "note": "data gap (revenue excluded from profit), not a "
                                                               "driver unless material"},
     }

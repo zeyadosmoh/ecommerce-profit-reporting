@@ -21,7 +21,7 @@ GOOD_EN = """- Net revenue after refunds fell 20.0% to SAR 30,247.12 versus SAR 
 - Recommended action: add the missing cost rows for ACC-006 and HOM-006."""
 
 GOOD_AR = """- انخفض صافي الإيرادات بعد المرتجعات بنسبة 20.0% إلى 30.2 ألف ريال.
-- انخفض صافي الإيرادات للبنود معروفة التكلفة 7,491.87 ريال مما أضر بالربح.
+- انخفض صافي الإيرادات للبنود معروفة التكلفة 7,491.87 ريال مما أضر بالربح، بينما انخفضت تكلفة البضاعة المباعة 4,607.80 ريال مما دعم الربح.
 - انخفض صافي الربح على البنود معروفة التكلفة بنسبة ١٤٫٧٪ إلى 11,481.12 ريال، بينما ارتفع الهامش 2.84 نقطة إلى 40.17%.
 - تجاوزت تكلفة الشحن الرسوم المحصّلة بمبلغ 1,469.90 ريال، والشحن المجاني سبب محتمل.
 - 20 بند طلب بقيمة 1,666.03 ريال بلا تكلفة ومستبعدة من الربح.
@@ -52,7 +52,7 @@ def test_good_summary_passes_first_time() -> None:
     assert (out.source, out.status, out.notice) == ("llm", "verified", None)
     assert len(out.bullets) == 6 and len(llm.calls) == 1
     log = out.log
-    assert log["model"] == "fake-model-1" and log["prompt_version"] == "5"
+    assert log["model"] == "fake-model-1" and log["prompt_version"] == "6"
     assert log["attempts"][0]["passed"] and log["attempts"][0]["numbers_checked"] >= 10
     assert log["tokens"] == {"input": 1000, "output": 200}
     assert log["cost_estimate_usd"] is None and log["cost_note"] == "pricing not configured"
@@ -163,7 +163,7 @@ def test_prompt_explains_sold_this_week() -> None:
 
     en, meta = build_system_prompt("en")
     ar, _ = build_system_prompt("ar")
-    assert meta["prompt_version"] == "5"
+    assert meta["prompt_version"] == "6"
     assert '"sold_this_week": false' in en and '"no sales this week"' in en
     assert '"بلا مبيعات هذا الأسبوع"' in ar
 

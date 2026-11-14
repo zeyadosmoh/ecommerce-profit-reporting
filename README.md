@@ -320,6 +320,9 @@ statuses, plus a `unique_combination` test.
   is material. Otherwise, a bullet with a cause word (helped, hurt, due to, because, driven by, caused, led to, thanks to,
   resulted in; بسبب، نتيجة، أدى، ساهم، بفضل، أثر، أسهم) and no hedge (possible, possibly, may, might, likely;
   محتمل، ربما، قد) fails. A definition such as "excluded from profit because the SKU has no cost row" is exempt.
+- **No circular explanations:** a fact number may appear only once per bullet (constants such as the 4-week
+  window are exempt), and the top 2 profit drivers must both be cited, so the offset (for example lower COGS) is
+  never left out.
 - **Substance:** the summary must quote the top insight's key number (or its % change), and the recommended
   action must name a SKU from the facts or a concrete lever (free-shipping threshold, shipping fee, cost sheet, ...).
 - **On failure:** the summary is regenerated once, with the list of bad numbers and problems. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".

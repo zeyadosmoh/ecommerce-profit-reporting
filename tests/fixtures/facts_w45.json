@@ -685,6 +685,8 @@
   ],
   "context": {
    "orders": {
+    "unit": "count",
+    "previous_week": 132,
     "this_week": 114,
     "change": {
      "abs": -18,
@@ -694,6 +696,8 @@
     }
    },
    "aov_ex_vat_products": {
+    "unit": "SAR",
+    "previous_week": 293.81,
     "this_week": 270.79,
     "change": {
      "abs": -23.02,
@@ -703,6 +707,8 @@
     }
    },
    "units_sold": {
+    "unit": "count",
+    "previous_week": 411,
     "this_week": 312,
     "change": {
      "abs": -99,
