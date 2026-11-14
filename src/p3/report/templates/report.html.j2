@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ t.dir }}">
+<head>
+<meta charset="utf-8">
+<title>{{ t.title }} · {{ f.week.iso_week }}</title>
+<style>
+{% if font_css %}{{ font_css | safe }}{% endif %}
+:root { --ink:#1f2933; --muted:#616e7c; --line:#e4e7eb; --soft:#f5f7fa; --accent:#2f6f5e;
+        --good:#1b7f4b; --bad:#b42318; --warn-bg:#fff7e6; --warn:#8a5a00; --banner:#fdecea; }
+@page { size: A4; margin: 14mm 13mm 16mm; }
+* { box-sizing: border-box; }
+body { font-family: {% if lang == 'ar' %}"Amiri", {% endif %}"DejaVu Sans", Arial, sans-serif; color: var(--ink);
+       font-size: 10.5px; line-height: 1.45; margin: 0; background: #fff; }
+.num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; white-space: nowrap; }
+header { display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid var(--accent);
+         padding-bottom:6px; margin-bottom:8px; }
+h1 { font-size:19px; margin:0; } h2 { font-size:13px; margin:14px 0 6px; color:var(--accent); }
+h3 { font-size:11px; margin:8px 0 4px; }
+.sub { color:var(--muted); }
+.banner { background:var(--banner); color:var(--bad); border:1px solid #f5c2bd; border-radius:4px;
+          padding:5px 8px; font-weight:bold; margin-bottom:10px; }
+.summary { background:var(--soft); border-inline-start:4px solid var(--accent); padding:8px 12px; border-radius:4px; }
+.summary ul { margin:4px 0 0; padding-inline-start:16px; } .summary li { margin:3px 0; }
+.summary .src { color:var(--muted); font-size:9.5px; }
+.unavailable { color:var(--warn); background:var(--warn-bg); padding:3px 6px; border-radius:3px; font-weight:bold;
+               display:inline-block; margin-bottom:4px; }
+.cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+.card { border:1px solid var(--line); border-radius:5px; padding:6px 8px; }
+.card .label { color:var(--muted); font-size:9.5px; } .card .value { font-size:16px; font-weight:bold; }
+.delta { font-size:9.5px; } .good { color:var(--good); } .bad { color:var(--bad); } .flat { color:var(--muted); }
+table { width:100%; border-collapse:collapse; } th, td { padding:3px 5px; border-bottom:1px solid var(--line); }
+th { text-align:start; color:var(--muted); font-weight:normal; font-size:9.5px; }
+td.r, th.r { text-align:end; } tr.total td { font-weight:bold; border-bottom:1.5px solid var(--ink); }
+td.op { width:14px; color:var(--muted); text-align:center; }
+.cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.charts { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.charts figure { margin:0; } .charts img { width:100%; } .charts figcaption { font-size:9.5px; color:var(--muted); }
+.callout { border:1px solid var(--line); border-radius:5px; padding:7px 10px; }
+.warn { background:var(--warn-bg); border-color:#f3d9a4; }
+.note { color:var(--muted); font-size:9.5px; margin-top:3px; }
+.avoid-break { break-inside: avoid; }
+footer { margin-top:14px; color:var(--muted); font-size:9px; border-top:1px solid var(--line); padding-top:5px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>{{ t.title }}</h1><div class="sub">{{ t.store }}</div></div>
+  <div class="sub">{{ t.week }} <span class="num">{{ f.week.iso_week }}</span> ·
+    <span class="num">{{ f.week.start }} – {{ f.week.end }}</span></div>
+</header>
+<div class="banner">{{ t.banner }}</div>
+
+<section class="summary avoid-break">
+  <h2 style="margin-top:0">{{ t.summary }}</h2>
+  {% if summary.notice %}<div class="unavailable">{{ summary.notice }}</div>{% endif %}
+  <ul dir="{{ t.dir }}">{% for b in summary.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
+  <div class="src">{{ summary.source_label }}</div>
+</section>
+
+<h2>{{ t.kpis }} <span class="sub" style="font-weight:normal">· {{ t.vs_prev }}</span></h2>
+<div class="cards">
+{% for key in main_kpis %}{% set k = f.kpis[key] %}
+  <div class="card">
+    <div class="label">{{ kpi_label(key, k) }}</div>
+    <div class="value num">{{ fmt_value(k.this_week, k.unit) }}</div>
+    <div class="delta {{ tone(k) }}"><span class="num">{{ arrow(k.change.direction) }} {{ fmt_change(k) }}</span></div>
+  </div>
+{% endfor %}
+</div>
+
+<h2>{{ t.bridge }}</h2>
+<div class="cols">
+{% for block, title in [('revenue', t.bridge_revenue), ('profit', t.bridge_profit)] %}
+  <div class="avoid-break"><h3>{{ title }}</h3>
+  <table><tr><th></th><th></th><th class="r">{{ t.this_week }}</th><th class="r">{{ t.previous_week }}</th></tr>
+  {% for r in f.bridge[block] %}
+    <tr class="{{ 'total' if r.op == '=' else '' }}"><td class="op">{{ r.op }}</td><td>{{ bridge_label(r.label) }}</td>
+      <td class="r num">{{ money(r.this_week) }}</td><td class="r num">{{ money(r.previous_week) }}</td></tr>
+  {% endfor %}
+  </table></div>
+{% endfor %}
+</div>
+<div class="note">{{ t.margin_note.format(margin=f.kpis.net_margin_pct_known_cost.this_week, excluded=money(f.missing_cost.net_revenue_this_week)) }}</div>
+<h3>{{ t.bridge_excluded }}</h3>
+<table class="avoid-break"><tr><th></th><th class="r">{{ t.this_week }}</th><th class="r">{{ t.previous_week }}</th></tr>
+{% for r in f.bridge.excluded %}<tr><td>{{ bridge_label(r.label) }}</td><td class="r num">{{ money(r.this_week) }}</td>
+  <td class="r num">{{ money(r.previous_week) }}</td></tr>{% endfor %}
+</table>
+
+<h2>{{ t.trends }}</h2>
+<div class="charts avoid-break">
+  <figure><img src="{{ charts.net_revenue }}" alt=""><figcaption>{{ t.trend_revenue }}</figcaption></figure>
+  <figure><img src="{{ charts.net_profit }}" alt=""><figcaption>{{ t.trend_profit }}</figcaption></figure>
+  <figure><img src="{{ charts.margin }}" alt=""><figcaption>{{ t.trend_margin }}</figcaption></figure>
+</div>
+
+<h2>{{ t.movers }}</h2>
+<table class="avoid-break">
+  <tr><th></th><th>{{ t.product }}</th><th class="r">{{ t.profit_now }}</th><th class="r">{{ t.profit_avg }}</th>
+      <th class="r">{{ t.profit_change }}</th><th class="r">{{ t.revenue_change }}</th></tr>
+  {% for group, items in [(t.risers, f.movers.risers), (t.fallers, f.movers.fallers)] %}{% for m in items %}
+  <tr><td class="{{ 'good' if m.profit_change.direction == 'up' else 'bad' }}">{{ group if loop.first else '' }}</td>
+      <td><span class="num">{{ m.sku }}</span> {{ m.product }}</td>
+      <td class="r num">{{ money(m.net_profit_this_week) }}</td><td class="r num">{{ money(m.net_profit_prev4_avg) }}</td>
+      <td class="r num {{ 'good' if m.profit_change.direction == 'up' else 'bad' }}">{{ signed(m.profit_change.abs) }} ({{ pct(m.profit_change.pct) }})</td>
+      <td class="r num">{{ signed(m.revenue_change.abs) }} ({{ pct(m.revenue_change.pct) }})</td></tr>
+  {% endfor %}{% endfor %}
+</table>
+{% if f.movers.missing_cost_products %}<div class="note">{{ t.missing_movers }}:
+  {% for m in f.movers.missing_cost_products %}<span class="num">{{ m.sku }} {{ signed(m.revenue_change.abs) }} ({{ pct(m.revenue_change.pct) }})</span>{{ '; ' if not loop.last }}{% endfor %}</div>{% endif %}
+
+<div class="cols" style="margin-top:6px">
+  <section class="callout avoid-break"><h3>{{ t.shipping }}</h3>
+    <div>{{ t.shipping_text.format(cost=money(f.shipping.shipping_cost), charged=money(f.shipping.shipping_charged),
+        subsidy=money(f.shipping.subsidy), free=money(f.shipping.free_shipping_part), paid=money(f.shipping.paid_shipping_part),
+        free_orders=f.shipping.free_shipping_orders, orders=f.shipping.orders, threshold=f.constants.free_shipping_threshold_incl_vat) }}</div>
+  </section>
+  <section class="callout warn avoid-break"><h3>{{ t.missing }}</h3>
+    <div>{{ t.missing_text.format(lines=f.missing_cost.lines_this_week, revenue=money(f.missing_cost.net_revenue_this_week)) }}</div>
+    <ul>{% for s in f.missing_cost.skus %}<li><span class="num">{{ s.sku }}</span> {{ s.product }} — <span class="num">{{ s.lines_to_date }}</span> {{ t.lines_to_date }}, {{ t.since }} <span class="num">{{ s.first_sale }}</span></li>{% endfor %}</ul>
+  </section>
+</div>
+
+<h2>{{ t.dq }}</h2>
+{% if f.data_quality.issues_this_week %}
+<table class="avoid-break">{% for i in f.data_quality.issues_this_week %}
+  <tr><td>{{ issue_label(i.issue_type) }}</td><td class="r num">{{ i.count }}</td><td class="r num">{{ money(i.amount) }}</td></tr>
+{% endfor %}</table>
+{% else %}<div>{{ t.dq_none }}</div>{% endif %}
+<div class="note">{{ t.dq_rejects.format(n=f.data_quality.etl_rejects_all_time) }}</div>
+
+<footer>{{ t.footer }} · {{ f.notice }}</footer>
+</body>
+</html>

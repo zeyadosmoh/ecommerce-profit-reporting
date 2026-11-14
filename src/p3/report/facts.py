@@ -90,9 +90,10 @@ def direction(delta: Decimal) -> str:
 def change(current: object, previous: object, pct: bool = True) -> dict:
     """Absolute and relative change with a precomputed direction. `pct=False` for percentage metrics
     (their absolute change is already in percentage points)."""
+    counts = isinstance(current, int) and isinstance(previous, int)
     cur, prev = Decimal(current or 0).quantize(CENT), Decimal(previous or 0).quantize(CENT)
     delta = cur - prev
-    out = {"abs": float(delta), "direction": direction(delta)}
+    out = {"abs": int(delta) if counts else float(delta), "direction": direction(delta)}
     if pct:
         out["pct"] = float((delta / abs(prev) * 100).quantize(TENTH, ROUND_HALF_UP)) if prev else None
     return out
