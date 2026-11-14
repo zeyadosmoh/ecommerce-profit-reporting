@@ -1,0 +1,277 @@
+{
+  "id": "p3WeeklyReport01",
+  "name": "P3 weekly profit report (synthetic data)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "p3-every-monday-08:00-riyadh",
+      "name": "Every Monday 08:00 Riyadh",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "p3-run-now-(manual)",
+      "name": "Run now (manual)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8770/run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"lang\": \"en\"}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "p3-run-weekly-pipeline",
+      "name": "Run weekly pipeline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "P3RunnerApi0001",
+          "name": "P3 runner API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p3-cond-status-200",
+              "leftValue": "={{ $json.statusCode }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "p3-run-succeeded",
+      "name": "Run succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:8770{{ $json.body.files.pdf }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "p3-download-pdf",
+      "name": "Download PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "P3RunnerApi0001",
+          "name": "P3 runner API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fromEmail": "P3 reports <reports@p3-profit.local>",
+        "toEmail": "owner@p3-profit.local",
+        "subject": "={{ $('Run weekly pipeline').item.json.body.email.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $('Run weekly pipeline').item.json.body.email.html }}",
+        "options": {
+          "attachments": "data",
+          "appendAttribution": false
+        }
+      },
+      "id": "p3-email-report",
+      "name": "Email report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        -200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "P3MailpitSmtp01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "P3 reports <reports@p3-profit.local>",
+        "toEmail": "owner@p3-profit.local",
+        "subject": "={{ $('Run weekly pipeline').item.json.body?.email?.subject ?? 'ALERT: P3 weekly report failed (runner unreachable or PDF download failed)' }}",
+        "emailFormat": "html",
+        "html": "={{ $('Run weekly pipeline').item.json.body?.email?.html ?? ('<h2>Weekly report run failed</h2><pre>' + ($json.error?.message ?? $json.message ?? JSON.stringify($json)) + '</pre><p>SYNTHETIC DATA demo. Check that `python -m p3 runner` is running on the host.</p>') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "p3-email-failure-alert",
+      "name": "Email failure alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "P3MailpitSmtp01",
+          "name": "Mailpit SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday 08:00 Riyadh": {
+      "main": [
+        [
+          {
+            "node": "Run weekly pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run now (manual)": {
+      "main": [
+        [
+          {
+            "node": "Run weekly pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run weekly pipeline": {
+      "main": [
+        [
+          {
+            "node": "Run succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Download PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PDF": {
+      "main": [
+        [
+          {
+            "node": "Email report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Riyadh",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "tags": []
+}
