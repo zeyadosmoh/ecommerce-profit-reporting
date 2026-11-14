@@ -61,7 +61,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     from p3.ingest.pipeline import run_ingest
 
     settings = get_settings()
-    client = StoreClient.from_settings(settings)
+    if args.in_process:
+        from p3.ingest.inprocess import in_process_store_client
+
+        client = in_process_store_client(settings)  # mock store served via ASGI: no HTTP server needed
+    else:
+        client = StoreClient.from_settings(settings)
     try:
         result = run_ingest(settings.dsn(), client, args.cost_source or settings.cost_sheet_source)
     except Exception as exc:  # the run is already logged as failed in raw.etl_runs
@@ -120,6 +125,18 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_runner(args: argparse.Namespace) -> int:
+    from p3.runner import serve
+
+    settings = get_settings()
+    host = args.host or settings.runner_host
+    print(SYNTHETIC_NOTICE)
+    print(f"Runner on http://{host}:{args.port or settings.runner_port} (POST /run, GET /files/..., GET /healthz)"
+          + (" with the in-process mock store" if args.with_mock_store else ""))
+    serve(settings, host, args.port or settings.runner_port, args.with_mock_store)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="p3", description="E-commerce profit reporting (synthetic data)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -142,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("ingest", help="incremental load from the store API + cost sheet into raw tables")
     p.add_argument("--cost-source", default=None, help="override COST_SHEET_SOURCE (file path or http(s) URL)")
+    p.add_argument("--in-process", action="store_true", help="read the mock store in-process (CI); no `p3 serve` needed")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("summary", help="row counts, rejects, recent runs and reproduce commands")
@@ -155,6 +173,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("profit-summary", help="last full week KPIs, top/bottom products, missing-cost warning")
     p.add_argument("--week", type=date.fromisoformat, default=None, help="ISO week Monday (default: last full week)")
     p.set_defaults(func=cmd_profit_summary)
+
+    p = sub.add_parser("runner", help="HTTP runner for n8n: ingest -> dbt build -> report (bearer token)")
+    p.add_argument("--host", default=None, help="bind address (default RUNNER_HOST=127.0.0.1; 0.0.0.0 is refused)")
+    p.add_argument("--port", type=int, default=None, help="default RUNNER_PORT=8770")
+    p.add_argument("--with-mock-store", action="store_true", help="ingest from the in-process mock store (demo)")
+    p.set_defaults(func=cmd_runner)
 
     p = sub.add_parser("report", help="weekly report: facts.json, report.html, report.pdf (+ AI summary)")
     p.add_argument("--week", type=date.fromisoformat, default=None, help="ISO week Monday (default: last full week)")

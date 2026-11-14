@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     report_lang: str = "en"
     reports_dir: Path = Path("reports")
 
+    runner_api_token: str = ""
+    runner_host: str = "127.0.0.1"
+    runner_port: int = 8770
+
     def dsn(self, dbname: str | None = None) -> str:
         return (
             f"host={self.postgres_host} port={self.postgres_port} "
