@@ -24,6 +24,7 @@
    "previous_week": 37809.69,
    "change": {
     "abs": -7562.57,
+    "unit": "SAR",
     "direction": "down",
     "pct": -20.0
    }
@@ -36,6 +37,7 @@
    "previous_week": 13465.61,
    "change": {
     "abs": -1984.49,
+    "unit": "SAR",
     "direction": "down",
     "pct": -14.7
    }
@@ -48,6 +50,7 @@
    "previous_week": 37.33,
    "change": {
     "abs": 2.84,
+    "unit": "pp",
     "direction": "up"
    }
   },
@@ -59,6 +62,7 @@
    "previous_week": 132,
    "change": {
     "abs": -18,
+    "unit": "count",
     "direction": "down",
     "pct": -13.6
    }
@@ -71,6 +75,7 @@
    "previous_week": 293.81,
    "change": {
     "abs": -23.02,
+    "unit": "SAR",
     "direction": "down",
     "pct": -7.8
    }
@@ -83,6 +88,7 @@
    "previous_week": 411,
    "change": {
     "abs": -99,
+    "unit": "count",
     "direction": "down",
     "pct": -24.1
    }
@@ -95,6 +101,7 @@
    "previous_week": 890.1,
    "change": {
     "abs": -756.62,
+    "unit": "SAR",
     "direction": "down",
     "pct": -85.0
    }
@@ -107,6 +114,7 @@
    "previous_week": 973.12,
    "change": {
     "abs": -350.44,
+    "unit": "SAR",
     "direction": "down",
     "pct": -36.0
    }
@@ -119,6 +127,7 @@
    "previous_week": 19190.04,
    "change": {
     "abs": -4607.8,
+    "unit": "SAR",
     "direction": "down",
     "pct": -24.0
    }
@@ -131,6 +140,7 @@
    "previous_week": 1399.91,
    "change": {
     "abs": -264.77,
+    "unit": "SAR",
     "direction": "down",
     "pct": -18.9
    }
@@ -143,6 +153,7 @@
    "previous_week": 1736.73,
    "change": {
     "abs": -70.7,
+    "unit": "SAR",
     "direction": "down",
     "pct": -4.1
    }
@@ -155,6 +166,7 @@
    "previous_week": 26,
    "change": {
     "abs": -6,
+    "unit": "count",
     "direction": "down",
     "pct": -23.1
    }
@@ -369,6 +381,7 @@
     "net_revenue_prev4_avg": 373.5,
     "revenue_change": {
      "abs": 1358.66,
+     "unit": "SAR",
      "direction": "up",
      "pct": 363.8
     },
@@ -376,6 +389,7 @@
     "net_profit_prev4_avg": 155.98,
     "profit_change": {
      "abs": 545.84,
+     "unit": "SAR",
      "direction": "up",
      "pct": 349.9
     }
@@ -388,6 +402,7 @@
     "net_revenue_prev4_avg": 1606.74,
     "revenue_change": {
      "abs": 422.82,
+     "unit": "SAR",
      "direction": "up",
      "pct": 26.3
     },
@@ -395,6 +410,7 @@
     "net_profit_prev4_avg": 917.77,
     "profit_change": {
      "abs": 235.55,
+     "unit": "SAR",
      "direction": "up",
      "pct": 25.7
     }
@@ -407,6 +423,7 @@
     "net_revenue_prev4_avg": 1068.06,
     "revenue_change": {
      "abs": 425.15,
+     "unit": "SAR",
      "direction": "up",
      "pct": 39.8
     },
@@ -414,6 +431,7 @@
     "net_profit_prev4_avg": 671.98,
     "profit_change": {
      "abs": 212.84,
+     "unit": "SAR",
      "direction": "up",
      "pct": 31.7
     }
@@ -428,6 +446,7 @@
     "net_revenue_prev4_avg": 640.25,
     "revenue_change": {
      "abs": -640.25,
+     "unit": "SAR",
      "direction": "down",
      "pct": -100.0
     },
@@ -435,6 +454,7 @@
     "net_profit_prev4_avg": 382.44,
     "profit_change": {
      "abs": -382.44,
+     "unit": "SAR",
      "direction": "down",
      "pct": -100.0
     }
@@ -447,6 +467,7 @@
     "net_revenue_prev4_avg": 963.55,
     "revenue_change": {
      "abs": -660.07,
+     "unit": "SAR",
      "direction": "down",
      "pct": -68.5
     },
@@ -454,6 +475,7 @@
     "net_profit_prev4_avg": 468.87,
     "profit_change": {
      "abs": -319.85,
+     "unit": "SAR",
      "direction": "down",
      "pct": -68.2
     }
@@ -466,6 +488,7 @@
     "net_revenue_prev4_avg": 2118.42,
     "revenue_change": {
      "abs": -686.25,
+     "unit": "SAR",
      "direction": "down",
      "pct": -32.4
     },
@@ -473,6 +496,7 @@
     "net_profit_prev4_avg": 867.68,
     "profit_change": {
      "abs": -292.77,
+     "unit": "SAR",
      "direction": "down",
      "pct": -33.7
     }
@@ -487,6 +511,7 @@
     "net_revenue_prev4_avg": 856.73,
     "revenue_change": {
      "abs": -138.51,
+     "unit": "SAR",
      "direction": "down",
      "pct": -16.2
     }
@@ -499,6 +524,7 @@
     "net_revenue_prev4_avg": 674.13,
     "revenue_change": {
      "abs": 273.68,
+     "unit": "SAR",
      "direction": "up",
      "pct": 40.6
     }
@@ -518,6 +544,7 @@
   "subsidy_previous_week": 2228.1,
   "subsidy_change": {
    "abs": -758.2,
+   "unit": "SAR",
    "direction": "down",
    "pct": -34.0
   }
@@ -556,5 +583,80 @@
    }
   ],
   "etl_rejects_all_time": 0
- }
+ },
+ "insights": [
+  {
+   "rank": 1,
+   "id": "net_profit_change",
+   "title": "Net profit (known cost) vs previous week",
+   "key_number": 1984.49,
+   "unit": "SAR",
+   "key_number_pct": 14.7,
+   "direction": "down",
+   "impact_sar": 1984.49,
+   "action_hint": "explain the change with the bridge rows and the product movers"
+  },
+  {
+   "rank": 2,
+   "id": "missing_cost",
+   "title": "Revenue excluded from profit because SKUs have no cost row",
+   "key_number": 1666.03,
+   "unit": "SAR",
+   "impact_sar": 1666.03,
+   "lines": 20,
+   "skus": [
+    "ACC-006",
+    "HOM-006"
+   ],
+   "action_hint": "add cost rows for these SKUs to the cost sheet"
+  },
+  {
+   "rank": 3,
+   "id": "shipping_subsidy",
+   "title": "Shipping cost not recovered from customers",
+   "key_number": 1469.9,
+   "unit": "SAR",
+   "impact_sar": 1469.9,
+   "free_shipping_part": 1411.0,
+   "paid_shipping_part": 58.9,
+   "free_shipping_orders": 49,
+   "action_hint": "review the free-shipping threshold or the flat shipping fee"
+  },
+  {
+   "rank": 4,
+   "id": "margin_change",
+   "title": "Net margin on known-cost lines vs previous week",
+   "key_number": 2.84,
+   "unit": "pp",
+   "direction": "up",
+   "impact_sar": 811.7,
+   "action_hint": "check whether the margin change comes from product mix or costs"
+  },
+  {
+   "rank": 5,
+   "id": "top_profit_riser",
+   "title": "Biggest product profit change vs 4-week average",
+   "key_number": 545.84,
+   "unit": "SAR",
+   "direction": "up",
+   "impact_sar": 545.84,
+   "sku": "HOM-001",
+   "product": "Majlis Floor Cushion",
+   "sold_this_week": true,
+   "action_hint": "check price, stock and promotion for this SKU"
+  },
+  {
+   "rank": 6,
+   "id": "top_profit_faller",
+   "title": "Biggest product profit change vs 4-week average",
+   "key_number": 382.44,
+   "unit": "SAR",
+   "direction": "down",
+   "impact_sar": 382.44,
+   "sku": "PRF-003",
+   "product": "Amber Nights EDP 100ml",
+   "sold_this_week": false,
+   "action_hint": "check stock and listing for this SKU (no sales this week)"
+  }
+ ]
 }

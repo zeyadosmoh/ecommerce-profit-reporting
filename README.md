@@ -227,6 +227,8 @@ statuses, plus a `unique_combination` test.
   - product movers: net profit (known cost) vs the previous 4-week average, top 3 each way, with the revenue change on the same row
   - the shipping subsidy
   - the missing-cost warning
+  - a ranked `insights` list: net profit change, missing-cost revenue, shipping subsidy, margin change (pp) and the
+    top product movers, ranked by estimated SAR impact. Each has a `key_number` and an `action_hint`.
   - data-quality counts
 - The report itself is a self-contained HTML file. Charts are matplotlib PNGs and the Arabic font (Amiri, OFL) is embedded. The PDF is printed by Playwright using Chromium installed per user, with no system-wide install.
 - **Shipping subsidy** = shipping cost − shipping charged, for the week's orders at sale time, ex-VAT. It is reported as two amounts that sum to the total exactly:
@@ -247,9 +249,17 @@ statuses, plus a `unique_combination` test.
   - Arabic: ارتفع / زاد / نما vs انخفض / تراجع / قل / هبط
 
   A contradiction counts as a failed number.
-- **On failure:** the summary is regenerated once, with the list of bad numbers. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".
+- **Units:** every change carries a unit (`SAR`, `count` or `pp`). Margin changes are percentage points, so a
+  pp fact written as `%` / percent / `٪` / بالمئة fails, and so does a percent written as pp / نقطة مئوية.
+- **Causes:** a bullet with a cause word (helped, hurt, due to, because, driven by, caused, led to, thanks to,
+  resulted in; بسبب، نتيجة، أدى، ساهم، بفضل، أثر، أسهم) and no hedge (possible, possibly, may, might, likely;
+  محتمل، ربما، قد) fails.
+- **Substance:** the summary must quote the top insight's key number (or its % change), and the recommended
+  action must name a SKU from the facts or a concrete lever (free-shipping threshold, shipping fee, cost sheet, ...).
+- **On failure:** the summary is regenerated once, with the list of bad numbers and problems. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".
 - **Logged in `facts.json`** under `ai_summary`: the model, prompt version, every attempt (tokens, unmatched numbers), the verification result and a cost estimate. Prices come from `LLM_PRICE_INPUT_PER_MTOK` / `LLM_PRICE_OUTPUT_PER_MTOK` in `.env`; if they are unset, the log says "pricing not configured".
-- **Known limitation:** a wrong number can still pass if it happens to equal an unrelated fact. The direction check and the small fact set reduce this risk.
+- **Known limitation:** a wrong number can still pass if it happens to equal an unrelated fact. The direction and unit checks and the small fact set reduce this risk. The cause check is
+  keyword-based, so a cause stated without one of the listed words is not caught.
 
 **Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. Both samples use a **real Gemini AI summary** (`gemini-3.5-flash-lite`, prompt v2). Each passed the number and direction check on the first attempt: `ai_summary.source = "llm"` and `status = "verified"` in `facts.json` / `facts.ar.json`, which also log the tokens and the cost estimate (null: pricing not configured). Regenerate them with `p3 report --out docs/sample-report --preview` and `--lang ar`.
 

@@ -87,13 +87,15 @@ def direction(delta: Decimal) -> str:
     return "up" if delta > 0 else "down" if delta < 0 else "flat"
 
 
-def change(current: object, previous: object, pct: bool = True) -> dict:
-    """Absolute and relative change with a precomputed direction. `pct=False` for percentage metrics
-    (their absolute change is already in percentage points)."""
+def change(current: object, previous: object, pct: bool = True, unit: str = "SAR") -> dict:
+    """Absolute and relative change with a precomputed direction and the unit of `abs`:
+    SAR | count | pp. Percentage metrics (margins) change in percentage points (unit "pp", no relative pct);
+    the "pct" field, when present, is always a relative change in percent."""
     counts = isinstance(current, int) and isinstance(previous, int)
     cur, prev = Decimal(current or 0).quantize(CENT), Decimal(previous or 0).quantize(CENT)
     delta = cur - prev
-    out = {"abs": int(delta) if counts else float(delta), "direction": direction(delta)}
+    out = {"abs": int(delta) if counts else float(delta), "unit": "count" if counts else unit,
+           "direction": direction(delta)}
     if pct:
         out["pct"] = float((delta / abs(prev) * 100).quantize(TENTH, ROUND_HALF_UP)) if prev else None
     return out
@@ -154,7 +156,7 @@ def build_facts(conn: psycopg.Connection, week_start: date) -> dict:
             "good_when": k.good_when,
             "this_week": money(week[k.column]) if k.unit != "count" else int(week[k.column]),
             "previous_week": money(prev[k.column]) if k.unit != "count" else int(prev[k.column]),
-            "change": change(week[k.column], prev[k.column], pct=not is_pct),
+            "change": change(week[k.column], prev[k.column], pct=not is_pct, unit="pp" if is_pct else "SAR"),
         }
     facts["kpis"]["missing_cost_lines"] = {
         "label": "Missing-cost lines", "unit": "count", "good_when": "down",
@@ -178,7 +180,65 @@ def build_facts(conn: psycopg.Connection, week_start: date) -> dict:
     facts["shipping"] = build_shipping(conn, week_start, prev_start)
     facts["missing_cost"] = build_missing_cost(conn, week_start, week)
     facts["data_quality"] = build_data_quality(conn, week_start)
+    facts["insights"] = build_insights(facts, week)
     return facts
+
+
+def build_insights(facts: dict, week: dict) -> list[dict]:
+    """Rank the week's most important findings by their estimated SAR impact (precomputed, deterministic).
+
+    impact_sar: net profit change | missing-cost revenue excluded | shipping subsidy |
+                margin change (pp x known-cost net revenue / 100) | top mover's profit change vs 4-week average.
+    Each insight has a key_number the summary must quote (or key_number_pct, its relative change)."""
+    k, ship, missing, movers = facts["kpis"], facts["shipping"], facts["missing_cost"], facts["movers"]
+    items: list[dict] = []
+    profit = k["net_profit"]
+    items.append({
+        "id": "net_profit_change", "title": "Net profit (known cost) vs previous week",
+        "key_number": abs(profit["change"]["abs"]), "unit": "SAR", "key_number_pct":
+            abs(profit["change"]["pct"]) if profit["change"].get("pct") is not None else None,
+        "direction": profit["change"]["direction"], "impact_sar": abs(profit["change"]["abs"]),
+        "action_hint": "explain the change with the bridge rows and the product movers",
+    })
+    if missing["lines_this_week"]:
+        items.append({
+            "id": "missing_cost", "title": "Revenue excluded from profit because SKUs have no cost row",
+            "key_number": missing["net_revenue_this_week"], "unit": "SAR", "impact_sar": missing["net_revenue_this_week"],
+            "lines": missing["lines_this_week"], "skus": [s["sku"] for s in missing["skus"]],
+            "action_hint": "add cost rows for these SKUs to the cost sheet",
+        })
+    if ship["subsidy"] and ship["subsidy"] > 0:
+        items.append({
+            "id": "shipping_subsidy", "title": "Shipping cost not recovered from customers",
+            "key_number": ship["subsidy"], "unit": "SAR", "impact_sar": ship["subsidy"],
+            "free_shipping_part": ship["free_shipping_part"], "paid_shipping_part": ship["paid_shipping_part"],
+            "free_shipping_orders": ship["free_shipping_orders"],
+            "action_hint": "review the free-shipping threshold or the flat shipping fee",
+        })
+    margin = k["net_margin_pct_known_cost"]["change"]
+    if margin["direction"] != "flat":
+        known_revenue = next(r["this_week"] for r in facts["bridge"]["profit"] if r["key"] == "net_revenue_known_cost_ex_vat")
+        items.append({
+            "id": "margin_change", "title": "Net margin on known-cost lines vs previous week",
+            "key_number": abs(margin["abs"]), "unit": "pp", "direction": margin["direction"],
+            "impact_sar": money(Decimal(str(abs(margin["abs"]))) * Decimal(str(known_revenue)) / 100),
+            "action_hint": "check whether the margin change comes from product mix or costs",
+        })
+    for group, mover_id in (("fallers", "top_profit_faller"), ("risers", "top_profit_riser")):
+        if movers[group]:
+            m = movers[group][0]
+            items.append({
+                "id": mover_id, "title": "Biggest product profit change vs 4-week average",
+                "key_number": abs(m["profit_change"]["abs"]), "unit": "SAR", "direction": m["profit_change"]["direction"],
+                "impact_sar": abs(m["profit_change"]["abs"]), "sku": m["sku"], "product": m["product"],
+                "sold_this_week": m["sold_this_week"],
+                "action_hint": ("check stock and listing for this SKU (no sales this week)" if not m["sold_this_week"]
+                                else "check price, stock and promotion for this SKU"),
+            })
+    items.sort(key=lambda i: (-i["impact_sar"], i["id"]))
+    for rank, item in enumerate(items, start=1):
+        item["rank"] = rank
+    return [{"rank": i.pop("rank"), **i} for i in items]
 
 
 def build_movers(conn: psycopg.Connection, week_start: date) -> dict:

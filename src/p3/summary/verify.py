@@ -9,6 +9,12 @@
    direction claimed for that number (explicit +/- sign, else the nearest direction word in its clause)
    must not contradict it. A number passes if it matches a change with a consistent direction, or matches
    a non-change fact. Otherwise it fails ("not in facts" or "direction contradicts").
+5. Unit check: margin changes are percentage points (facts unit "pp"). A number written with % / percent /
+   ٪ / بالمئة must match a percent fact; one written with pp / percentage points / نقطة مئوية must match a
+   pp fact. Writing a pp change as % fails.
+6. Per bullet: a causal claim (helped, due to, بسبب, ساهم, ...) without a hedge (possible, may, محتمل, ربما, قد)
+   fails. The summary must also mention the top insight's key number, and the action bullet must name a SKU
+   from facts or a concrete lever.
 
 Known limitation: a wrong number can still pass if it happens to equal an unrelated fact.
 """
@@ -45,12 +51,34 @@ DIRECTION_WORDS = {
 DIRECTION_RES = {d: [re.compile(p) for p in pats] for d, pats in DIRECTION_WORDS.items()}
 TOLERANCE_EPS = Decimal("0.000001")
 
+# Unit written right after a number (searched at the end of the number match).
+PCT_WORDS_RE = re.compile(r"\s*(?:%|percent\b|per cent\b|بالمئة|بالمائة|في المئة|في المائة)")
+PP_WORDS_RE = re.compile(r"\s*(?:pp\b|p\.p\.|percentage[- ]points?\b|points?\b|pts\b|"
+                         r"نقطة مئوية|نقاط مئوية|نقطتين مئويتين|نقطة|نقاط)")
+
+_AR_P = r"(?:[وف])?"
+CAUSE_RES = [
+    re.compile(r"\b(?:helped|helps|help|hurt|hurts|due to|because|driven by|drove|caused|causes|led to|leads to|"
+               r"thanks to|resulted in|results in|as a result of)\b", re.IGNORECASE),
+    re.compile(rf"(?<!\w){_AR_P}(?:بسبب|نتيجة|أدى|أدت|ساهم|ساهمت|بفضل|أثر|أثّر|أثرت|أسهم|أسهمت)(?!\w)"),
+]
+HEDGE_RES = [
+    re.compile(r"\b(?:possible|possibly|may|might|likely)\b", re.IGNORECASE),
+    re.compile(rf"(?<!\w){_AR_P}(?:محتمل|محتملة|محتملاً|ربما|قد)(?!\w)"),
+]
+# Concrete levers an action may name instead of a SKU.
+LEVERS = {
+    "en": ["free-shipping threshold", "free shipping threshold", "cost sheet", "shipping fee", "shipping rate",
+           "discount", "coupon", "price", "carrier"],
+    "ar": ["الشحن المجاني", "ورقة التكاليف", "رسوم الشحن", "سعر الشحن", "الخصم", "كوبون", "السعر", "شركة الشحن"],
+}
+
 
 @dataclass(frozen=True)
 class Fact:
     value: Decimal
     path: str
-    is_pct: bool
+    kind: str  # pct (percent) | pp (percentage points) | amount (SAR, counts, other)
     direction: str | None  # set when the fact is part of a change
 
 
@@ -61,6 +89,7 @@ class NumberCheck:
     ok: bool
     matched: str | None = None
     reason: str | None = None
+    tolerance: str = "0"
 
 
 @dataclass
@@ -102,8 +131,7 @@ def flatten_facts(facts: object) -> tuple[list[Fact], set[str]]:
                 if isinstance(value, bool):
                     continue
                 if isinstance(value, (int, float)):
-                    is_pct = "pct" in key or (unit == "pct" and key in ("this_week", "previous_week", "abs"))
-                    numbers.append(Fact(Decimal(str(value)), f"{path}.{key}".lstrip("."), is_pct, child_dir))
+                    numbers.append(Fact(Decimal(str(value)), f"{path}.{key}".lstrip("."), _kind(key, unit), child_dir))
                 else:
                     walk(value, f"{path}.{key}".lstrip("."), unit, None)
         elif isinstance(node, list):
@@ -114,6 +142,16 @@ def flatten_facts(facts: object) -> tuple[list[Fact], set[str]]:
 
     walk(facts, "", None, None)
     return numbers, strings
+
+
+def _kind(key: str, unit: str | None) -> str:
+    if "pct" in key:
+        return "pct"
+    if unit == "pp" and key in ("abs", "key_number", "this_week", "previous_week"):
+        return "pp"
+    if unit == "pct" and key in ("this_week", "previous_week", "key_number"):
+        return "pct"
+    return "amount"
 
 
 def parse_bullets(text: str) -> list[str]:
@@ -169,34 +207,77 @@ def check_numbers(text: str, facts: dict) -> list[NumberCheck]:
         mult = Decimal(MULTIPLIERS.get(m.group("suffix") or "", 1))
         target = written * mult
         half_step = (Decimal(1).scaleb(-len(dec)) * mult) / 2 + TOLERANCE_EPS
-        is_pct = bool(m.group("pct"))
-        candidates = [f for f in numbers if abs(abs(f.value) - target) <= half_step and (f.is_pct or not is_pct)]
+        written_unit = "pct" if m.group("pct") or PCT_WORDS_RE.match(masked, m.end()) else (
+            "pp" if PP_WORDS_RE.match(masked, m.end()) else None)
+        token = m.group(0).strip()
+        by_value = [f for f in numbers if abs(abs(f.value) - target) <= half_step]
+        candidates = [f for f in by_value if written_unit is None or f.kind == written_unit]
+        if by_value and not candidates:
+            kinds = sorted({f.kind for f in by_value})
+            written = {"pct": "percent", "pp": "percentage points"}[written_unit]
+            facts_unit = " / ".join({"pct": "percent", "pp": "percentage points", "amount": "an amount"}[k] for k in kinds)
+            checks.append(NumberCheck(token, str(target), False, matched=by_value[0].path, tolerance=str(half_step),
+                                      reason=f"unit: written as {written} but the fact is {facts_unit}"))
+            continue
         start, end = _clause_bounds(masked, m.start())
         claimed = _claimed_direction(masked[start:end], m.group("sign"), m.start() - start)
         consistent = [f for f in candidates if f.direction and (claimed is None or claimed == f.direction)]
         levels = [f for f in candidates if not f.direction]
         changes = [f for f in candidates if f.direction]
-        token = m.group(0).strip()
+        tol = str(half_step)
         if consistent:
-            checks.append(NumberCheck(token, str(target), True, matched=consistent[0].path))
+            checks.append(NumberCheck(token, str(target), True, matched=consistent[0].path, tolerance=tol))
         elif levels:
-            checks.append(NumberCheck(token, str(target), True, matched=levels[0].path))
+            checks.append(NumberCheck(token, str(target), True, matched=levels[0].path, tolerance=tol))
         elif changes:
-            checks.append(NumberCheck(token, str(target), False, matched=changes[0].path,
+            checks.append(NumberCheck(token, str(target), False, matched=changes[0].path, tolerance=tol,
                                       reason=f"direction contradicts facts ({changes[0].path} is "
                                              f"{changes[0].direction}, text says {claimed})"))
         else:
-            checks.append(NumberCheck(token, str(target), False, reason="not found in facts.json"))
+            checks.append(NumberCheck(token, str(target), False, tolerance=tol, reason="not found in facts.json"))
     return checks
 
 
+def unhedged_causal_claims(bullets: list[str]) -> list[str]:
+    """One problem per bullet that states a cause (helped, due to, بسبب, ...) without a hedge."""
+    problems = []
+    for i, bullet in enumerate(bullets, start=1):
+        causes = [m.group(0) for r in CAUSE_RES for m in r.finditer(bullet)]
+        if causes and not any(r.search(bullet) for r in HEDGE_RES):
+            problems.append(f"bullet {i}: causal claim without a hedge ({', '.join(causes)}): {bullet}")
+    return problems
+
+
+def mentions_key_number(checks: list[NumberCheck], insight: dict) -> bool:
+    """True if a verified number in the text equals the insight's key number (or its relative change in %)."""
+    wanted = [Decimal(str(insight[k])) for k in ("key_number", "key_number_pct") if insight.get(k) is not None]
+    return any(c.ok and abs(Decimal(c.value) - abs(w)) <= Decimal(c.tolerance) for c in checks for w in wanted)
+
+
+def action_is_specific(action: str, facts: dict, lang: str) -> bool:
+    _, strings = flatten_facts(facts)
+    skus = {s for s in strings if SKU_RE.fullmatch(s)}
+    text = normalize(action)
+    return any(s in text for s in skus) or any(lever in text.lower() for lever in LEVERS.get(lang, LEVERS["en"]))
+
+
 def verify_summary(text: str, facts: dict, min_bullets: int = 4, max_bullets: int = 6,
-                   action_label: str | None = None) -> Verification:
+                   action_label: str | None = None, lang: str = "en") -> Verification:
     bullets = parse_bullets(text)
     problems = []
     if not min_bullets <= len(bullets) <= max_bullets:
         problems.append(f"expected {min_bullets}-{max_bullets} bullets, got {len(bullets)}")
-    if action_label and sum(1 for b in bullets if b.startswith(action_label)) != 1:
+    actions = [b for b in bullets if action_label and b.startswith(action_label)]
+    if action_label and len(actions) != 1:
         problems.append(f"expected exactly one bullet starting with {action_label!r}")
+    elif actions and not action_is_specific(actions[0], facts, lang):
+        problems.append("the recommended action must name a SKU from facts.json or a concrete lever "
+                        "(e.g. the free-shipping threshold or the cost sheet)")
+    problems += unhedged_causal_claims(bullets)
     numbers = check_numbers("\n".join(bullets), facts)
+    insights = facts.get("insights") or []
+    if insights and not mentions_key_number(numbers, insights[0]):
+        top = insights[0]
+        problems.append(f"the top insight ({top['id']}) is not covered: mention its key number {top['key_number']}"
+                        + (f" or {top['key_number_pct']}%" if top.get("key_number_pct") is not None else ""))
     return Verification(passed=not problems and all(n.ok for n in numbers), numbers=numbers, problems=problems)

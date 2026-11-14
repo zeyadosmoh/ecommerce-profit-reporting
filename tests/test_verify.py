@@ -14,7 +14,7 @@ FACTS = {
         "net_revenue": {"unit": "SAR", "this_week": 30247.12, "previous_week": 37809.69,
                         "change": {"abs": -7562.57, "direction": "down", "pct": -20.0}},
         "margin": {"unit": "pct", "this_week": 40.17, "previous_week": 37.33,
-                   "change": {"abs": 2.84, "direction": "up"}},
+                   "change": {"abs": 2.84, "unit": "pp", "direction": "up"}},
         "orders": {"unit": "count", "this_week": 114, "previous_week": 132,
                    "change": {"abs": -18, "direction": "down", "pct": -13.6}},
         "aov": {"unit": "SAR", "this_week": 270.79, "previous_week": 270.79,
@@ -45,7 +45,8 @@ def test_invented_or_misrounded_numbers_fail(text: str) -> None:
 
 
 def test_percent_only_matches_percentage_facts() -> None:
-    assert results("114%")["114%"] == (False, "not found in facts.json")
+    ok, reason = results("114%")["114%"]
+    assert not ok and reason == "unit: written as percent but the fact is an amount"
     assert results("114 orders")["114"][0]
 
 
@@ -116,7 +117,7 @@ def test_fact_strings_are_masked_and_unknown_ones_fail() -> None:
 
 
 def test_verify_summary_checks_bullet_count_and_action() -> None:
-    text = "- Net profit fell 14.7%.\n- Orders fell to 114.\n- Net margin rose 2.84 points.\n- Recommended action: review shipping."
+    text = "- Net profit fell 14.7%.\n- Orders fell to 114.\n- Net margin rose 2.84 points.\n- Recommended action: review the free-shipping threshold."
     assert verify_summary(text, FACTS, action_label="Recommended action:").passed
     three = "\n".join(text.splitlines()[:3])
     v = verify_summary(three, FACTS, action_label="Recommended action:")
@@ -139,3 +140,91 @@ def test_exact_arabic_words() -> None:
     assert POSSIBLE in template and THOUSAND in template
     assert POSSIBLE in generate
     assert "لمتحم" not in prompt + template + generate and "فلأ" not in prompt + template + generate
+
+
+# ---- units: margin changes are percentage points ---------------------------------------------
+
+@pytest.mark.parametrize("text,ok", [
+    ("Net margin rose 2.84 percentage points to 40.17%.", True),
+    ("Net margin rose 2.84 pp to 40.17%.", True),
+    ("Net margin rose 2.84 points.", True),
+    ("Net margin rose 2.84%.", False),
+    ("Net margin rose 2.84 percent.", False),
+    ("Net margin was 40.17 percentage points.", False),  # a level in percent written as pp
+    ("ارتفع هامش الربح 2.84 نقطة مئوية إلى 40.17%.", True),
+    ("ارتفع هامش الربح ٢٫٨٤ نقطة مئوية.", True),
+    ("ارتفع هامش الربح بنسبة 2.84%.", False),
+    ("ارتفع هامش الربح ٢٫٨٤٪.", False),
+    ("ارتفع هامش الربح 2.84 بالمئة.", False),
+])
+def test_percentage_points_vs_percent(text: str, ok: bool) -> None:
+    checks = check_numbers(text, FACTS)
+    assert all(c.ok for c in checks) is ok, [(c.text, c.reason) for c in checks]
+    if not ok:
+        assert any(c.reason and c.reason.startswith("unit:") for c in checks)
+
+
+# ---- causal claims need a hedge ------------------------------------------------------------------
+
+@pytest.mark.parametrize("bullet,ok", [
+    ("Net profit fell 14.7%, driven by lower sales.", False),
+    ("Lower COGS helped profit.", False),
+    ("Net profit fell 14.7% due to fewer orders.", False),
+    ("Net profit fell because orders fell to 114.", False),
+    ("Free shipping led to a subsidy of SAR 1,469.90.", False),
+    ("Net profit fell 14.7%, possibly driven by lower sales.", True),
+    ("Fewer orders may have hurt profit.", True),
+    ("Lower sales likely led to the drop.", True),
+    ("Net profit fell 14.7% to SAR 11,481.12.", True),  # no causal claim
+    ("انخفض صافي الربح 14.7% بسبب تراجع الطلبات.", False),
+    ("ساهم نمو المنتجات في الأداء.", False),
+    ("أدى الشحن المجاني إلى دعم بقيمة 1,469.90 ريال.", False),
+    ("انخفض صافي الربح 14.7%، ربما بسبب تراجع الطلبات.", True),
+    ("قد يكون الشحن المجاني أثر على الربح.", True),
+    ("الشحن المجاني سبب محتمل لانخفاض الربح، بسبب ارتفاع التكلفة.", True),
+])
+def test_causal_claims_need_a_hedge(bullet: str, ok: bool) -> None:
+    from p3.summary.verify import unhedged_causal_claims
+
+    assert (unhedged_causal_claims([bullet]) == []) is ok
+
+
+# ---- substance: top insight and specific action -------------------------------------------------
+
+INSIGHT_FACTS = {**FACTS, "insights": [
+    {"rank": 1, "id": "net_profit_change", "key_number": 1984.49, "key_number_pct": 14.7, "unit": "SAR",
+     "direction": "down", "impact_sar": 1984.49},
+    {"rank": 2, "id": "shipping_subsidy", "key_number": 1469.9, "unit": "SAR", "impact_sar": 1469.9},
+]}
+BASE = ["Orders fell to 114.", "Net margin rose 2.84 percentage points to 40.17%.",
+        "Shipping cost exceeded shipping charged by SAR 1,469.90."]
+
+
+@pytest.mark.parametrize("extra,ok", [
+    ("Net profit fell SAR 1,984.49.", True),
+    ("Net profit fell about SAR 2.0k.", True),
+    ("Net profit fell 14.7%.", True),
+    ("Net profit fell to SAR 11,481.12.", False),  # level only: the top insight's key number is missing
+])
+def test_top_insight_key_number_must_be_mentioned(extra: str, ok: bool) -> None:
+    text = "\n".join(f"- {b}" for b in [extra, *BASE, "Recommended action: add cost rows to the cost sheet."])
+    v = verify_summary(text, INSIGHT_FACTS, action_label="Recommended action:")
+    assert v.passed is ok, (v.problems, [(c.text, c.reason) for c in v.failures])
+    if not ok:
+        assert any("top insight" in p for p in v.problems)
+
+
+@pytest.mark.parametrize("action,lang,ok", [
+    ("Recommended action: add a cost row for PRF-007 to the cost sheet.", "en", True),
+    ("Recommended action: review the free-shipping threshold.", "en", True),
+    ("Recommended action: improve profitability across the store.", "en", False),
+    ("Recommended action: assign cost records to the missing-cost lines.", "en", False),
+    ("الإجراء المقترح: راجع حدّ الشحن المجاني.", "ar", True),
+    ("الإجراء المقترح: أضف تكلفة PRF-007 إلى ورقة التكاليف.", "ar", True),
+    ("الإجراء المقترح: تحسين الربحية بشكل عام.", "ar", False),
+])
+def test_action_must_name_a_sku_or_lever(action: str, lang: str, ok: bool) -> None:
+    label = action.split(":")[0] + ":"
+    text = "\n".join(f"- {b}" for b in ["Net profit fell 14.7%.", *BASE, action])
+    v = verify_summary(text, INSIGHT_FACTS, action_label=label, lang=lang)
+    assert (not any("recommended action" in p for p in v.problems)) is ok, v.problems

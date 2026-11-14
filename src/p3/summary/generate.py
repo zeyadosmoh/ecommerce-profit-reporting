@@ -10,11 +10,15 @@ from decimal import Decimal
 
 from p3.llm.base import LLMClient, LLMError, load_prompt
 from p3.report.facts import llm_view
-from p3.summary.template import ACTION_LABEL, POSSIBLE_WORD, template_summary
+from p3.summary.template import ACTION_LABEL, template_summary
 from p3.summary.verify import Verification, parse_bullets, verify_summary
 
 MIN_BULLETS, MAX_BULLETS = 4, 6
 LANGUAGES = {"en": "English", "ar": "Arabic"}
+PP_EXAMPLE = {"en": "2.84 percentage points", "ar": "2.84 نقطة مئوية"}
+CAUSE_WORDS = {"en": "helped, hurt, due to, because, driven by, caused, led to, thanks to, resulted in",
+               "ar": "بسبب، نتيجة، أدى، ساهم، بفضل، أثر، أسهم"}
+POSSIBLE_HEDGES = {"en": "possible / possibly / may / might / likely", "ar": "محتمل / ربما / قد"}
 NO_SALES_PHRASE = {"en": "no sales this week", "ar": "بلا مبيعات هذا الأسبوع"}
 POSSIBLE_EXAMPLE = {"en": "a possible cause is the free-shipping threshold",
                     "ar": "سبب محتمل: حدّ الشحن المجاني"}
@@ -35,8 +39,9 @@ def build_system_prompt(lang: str) -> tuple[str, dict]:
     prompt = load_prompt()
     language_rules = load_prompt("language_ar.md").text if lang == "ar" else ""
     text = prompt.text.format(bullet_min=MIN_BULLETS, bullet_max=MAX_BULLETS, language_name=LANGUAGES[lang],
-                              action_label=ACTION_LABEL[lang], possible_word=POSSIBLE_WORD[lang],
+                              action_label=ACTION_LABEL[lang], possible_word=POSSIBLE_HEDGES[lang],
                               possible_example=POSSIBLE_EXAMPLE[lang], no_sales_phrase=NO_SALES_PHRASE[lang],
+                              pp_example=PP_EXAMPLE[lang], cause_words=CAUSE_WORDS[lang],
                               language_rules=language_rules)
     # Hash the exact system prompt sent (base prompt + language rules), so EN and AR are distinguishable.
     return text, {"prompt_version": prompt.version, "prompt_sha256": hashlib.sha256(text.encode()).hexdigest()[:12]}
@@ -48,7 +53,8 @@ def build_user_message(facts: dict, previous: str | None = None, verification: V
         bad = [f"- {n.text!r}: {n.reason}" for n in verification.failures] + [f"- {p}" for p in verification.problems]
         message += ("\n\nYour previous summary failed the number check. Problems:\n" + "\n".join(bad) +
                     "\n\nPrevious summary:\n" + previous +
-                    "\n\nRewrite the summary. Use only numbers that appear in facts.json, with their direction.")
+                    "\n\nRewrite the summary. Use only numbers that appear in facts.json, with their direction and unit, "
+                    "hedge every cause, cover the top insights and name a SKU or lever in the action.")
     return message
 
 
@@ -62,7 +68,8 @@ def generate_summary(facts: dict, client: LLMClient | None, lang: str = "en", no
 
     def fallback(status: str, notice: str | None, reason: str | None) -> SummaryOutcome:
         bullets = template_summary(facts, lang)
-        check = verify_summary("\n".join(f"- {b}" for b in bullets), facts, MIN_BULLETS, MAX_BULLETS, ACTION_LABEL[lang])
+        check = verify_summary("\n".join(f"- {b}" for b in bullets), facts, MIN_BULLETS, MAX_BULLETS, ACTION_LABEL[lang],
+                               lang)
         log.update({"source": "template", "status": status, "reason": reason, "template_verification": check.as_log()})
         _add_usage(log, prices)
         return SummaryOutcome(bullets, "template", status, notice, log)
@@ -77,7 +84,7 @@ def generate_summary(facts: dict, client: LLMClient | None, lang: str = "en", no
         except LLMError as exc:
             log["attempts"].append({"attempt": attempt, "error": str(exc)})
             return fallback("llm_error", NOTICE_ERROR, str(exc))
-        verification = verify_summary(response.text, facts, MIN_BULLETS, MAX_BULLETS, ACTION_LABEL[lang])
+        verification = verify_summary(response.text, facts, MIN_BULLETS, MAX_BULLETS, ACTION_LABEL[lang], lang)
         log["model"] = response.model
         log["attempts"].append({"attempt": attempt, "input_tokens": response.input_tokens,
                                 "output_tokens": response.output_tokens, **verification.as_log(),
