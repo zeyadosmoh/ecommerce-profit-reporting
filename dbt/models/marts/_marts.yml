@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: fct_order_lines_profit
+    description: >
+      Lifetime profit per order line (revenue-status orders), ex-VAT. Refund effects are included
+      regardless of week. cost_missing lines have NULL cogs / gross_profit / net_profit.
+    columns:
+      - name: line_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_order_lines')
+                field: line_id
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders_profit')
+                field: order_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: "{{ var('revenue_statuses') }}"
+      - name: cost_missing
+        data_tests: [not_null]
+  - name: fct_orders_profit
+    description: Lifetime profit per order. net_profit is NULL if any line lacks a cost; see net_profit_known_cost.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: "{{ var('revenue_statuses') }}"
+  - name: agg_product_weekly
+    description: Product x ISO week KPIs from the profit ledger.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [sku, week_start]
+    columns:
+      - name: sku
+        data_tests: [not_null]
+      - name: week_start
+        data_tests: [not_null]
+  - name: agg_weekly_kpis
+    description: >
+      Store KPIs per ISO week (Mon-Sun, store-local). Profit / margin cover known-cost lines only;
+      missing_cost_lines and missing_cost_net_revenue_ex_vat show what is excluded.
+      aov_ex_vat_products = product net revenue ex-VAT, before refunds, excluding shipping / orders.
+    columns:
+      - name: week_start
+        data_tests: [unique, not_null]
+      - name: orders
+        data_tests: [not_null]
+  - name: dq_issues
+    description: Excluded orders, missing costs, missing order cost meta, orphan refunds and ETL rejects.
+    columns:
+      - name: issue_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [excluded_order_status, missing_cost, missing_order_cost_meta, orphan_refund, etl_reject]
+      - name: severity
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [info, warning, error]
