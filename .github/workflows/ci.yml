@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pipeline + tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.14"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: p3
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: p3
+        ports: ["5436:5432"]
+        options: >-
+          --health-cmd "pg_isready -U p3 -d p3"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      # CI-only values for a throwaway database. No LLM key: the report uses the template summary.
+      POSTGRES_USER: p3
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: p3
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5436"
+      STORE_API_KEY: ck_ci_only
+      STORE_API_SECRET: cs_ci_only
+      GEMINI_API_KEY: ""
+      LLM_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+
+      - name: Playwright Chromium (with system dependencies, CI runner only)
+        run: python -m playwright install --with-deps chromium
+
+      - name: Synthetic pipeline (generate -> init-db -> ingest in-process -> dbt build)
+        run: |
+          python -m p3 generate
+          python -m p3 init-db
+          python -m p3 ingest --in-process
+          python -m p3 ingest --in-process   # second run must upsert 0 rows
+          python -m p3 dbt build
+
+      - name: Tests (no API key needed)
+        run: python -m pytest
+
+      - name: Weekly report (template summary)
+        run: |
+          python -m p3 report --no-ai
+          python -m p3 report --no-ai --lang ar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report-py${{ matrix.python }}
+          path: reports/
+          retention-days: 14
