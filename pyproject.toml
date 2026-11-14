@@ -16,16 +16,20 @@ dependencies = [
     "tenacity>=9.0",
     "dbt-core==1.12.6",
     "dbt-postgres==1.11.0",
+    "google-genai==3.0.0",
+    "playwright==1.65.1",
+    "matplotlib>=3.10",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3"]
+dev = ["pytest>=8.3", "pypdf>=6.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-p3 = ["db/*.sql"]
+p3 = ["db/*.sql", "llm/prompts/*.md", "report/templates/*.j2", "report/assets/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

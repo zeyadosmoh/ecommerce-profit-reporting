@@ -12,6 +12,7 @@ vars:
   store_timezone: "Asia/Riyadh"                                # order/refund dates and ISO weeks are store-local
   revenue_statuses: ["completed", "processing", "refunded"]    # everything else is excluded (see dq_issues)
   refund_week_basis: "refund_date"                             # or "order_date"
+  free_shipping_threshold_incl_vat: 299                        # store rule: free shipping from this basket value
 
 models:
   p3_profit:

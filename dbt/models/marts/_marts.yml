@@ -73,3 +73,11 @@ models:
           - accepted_values:
               arguments:
                 values: [info, warning, error]
+  - name: agg_weekly_shipping
+    description: >
+      Shipping subsidy per ISO order week, ex-VAT, at sale. shipping_subsidy_ex_vat =
+      free_shipping_part_ex_vat (cost of free-shipping orders) + paid_shipping_part_ex_vat
+      (cost - charged on paid orders, may be negative). Parts sum exactly.
+    columns:
+      - name: week_start
+        data_tests: [unique, not_null]
