@@ -166,12 +166,23 @@ system-wide. `python -m p3 dbt <args>` passes the `.env` credentials as environm
 7. **Weeks** are ISO weeks, Monday to Sunday, in store-local time (`week_start` is the Monday).
 
 ### Metric definitions
-- **`net_revenue_ex_vat`**: product net revenue ex-VAT (after discounts) minus refunded product revenue.
-  Shipping is excluded.
-- **`refunds_ex_vat`**: refunded product revenue plus refunded shipping, ex-VAT. It is informational,
-  because both are already netted out of revenue and shipping charged.
-- **`net_profit_known_cost`** = net revenue − COGS + shipping charged − shipping cost − payment fees,
-  summed over known-cost lines only.
+- **`net_revenue_ex_vat`** = `net_sales_ex_vat` − `product_refunds_ex_vat`, where net sales are product
+  revenue ex-VAT after discounts. Shipping is excluded.
+- **Refunds are split in two.** `product_refunds_ex_vat` is refunded line revenue, and
+  `shipping_refunds_ex_vat` is refunded shipping. `refunds_ex_vat` is their sum. `shipping_charged_*` is
+  what was charged at sale, before refunds.
+- **The weekly KPIs form a bridge** that a reader can add up with a calculator. A dbt test checks every
+  week and every product-week, and a pytest re-adds the printed `profit-summary` text for every week:
+  ```
+    Gross sales − Discounts = Net sales − Product refunds = Net revenue after refunds
+    Net revenue after refunds − Excluded (missing-cost) revenue = Net revenue after refunds (known cost)
+    Net revenue (known cost) − COGS = Gross profit
+    Gross profit + Shipping charged − Shipping refunded − Shipping cost − Payment fees = Net profit (known cost)
+  ```
+  The bridge's shipping and fee rows are the known-cost lines' allocations. The missing-cost lines' revenue,
+  allocated shipping charged, shipping refunded, shipping cost and fees are listed separately as
+  "Excluded", and known plus excluded equals the store total for each row.
+- **`net_profit_known_cost`**: the bridge result, over known-cost lines only.
 - **`net_margin_pct_known_cost`** = `net_profit_known_cost` ÷ net revenue of known-cost lines × 100.
   It is always shown next to the excluded `missing_cost_net_revenue_ex_vat`.
 - **`aov_ex_vat_products`**: product net revenue ex-VAT, before refunds, excluding shipping, divided by
@@ -186,7 +197,8 @@ statuses, plus a `unique_combination` test.
 - line revenue plus shipping reconciles to the raw `total − total_tax`
 - effective-dated costs pick the right row, and a real cost change is exercised on both sides
 - missing-cost lines never carry COGS or profit
-- weekly and product-weekly totals tie to the order lines for 15 metrics
+- weekly and product-weekly totals tie to the order lines for 17 metrics
+- the weekly bridge reconciles exactly, row by row, for every week and product-week
 - VAT never appears in revenue
 
 **pytest:**
@@ -194,6 +206,7 @@ statuses, plus a `unique_combination` test.
   tables in plain Python and matches the marts to the halala
 - 3 golden orders (a coupon, a partial refund, a missing-cost SKU) with hand-derived expected numbers
   written out in the test
+- the printed `profit-summary` bridge adds up, row by row, for all 26 weeks
 
 ## Design trade-offs (one line each)
 

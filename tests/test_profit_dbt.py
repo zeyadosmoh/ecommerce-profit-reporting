@@ -283,3 +283,55 @@ def test_weeks_are_iso_monday_to_sunday(built: psycopg.Connection) -> None:
     assert len(weeks) == 26 and all(w[2] for w in weeks)
     assert all(ws.isoweekday() == 1 and we == ws + timedelta(days=6) for ws, we, _ in weeks)
     assert (weeks[0][0], weeks[-1][1]) == (date(2026, 5, 11), date(2026, 11, 8))
+
+
+# --------------------------------------------------------------------------------------------------
+# The printed profit-summary bridge must add up with a calculator, for every week and both columns.
+# --------------------------------------------------------------------------------------------------
+
+def _sar(cell: str) -> Decimal:
+    return D(cell.strip().removeprefix("SAR ").replace(",", ""))
+
+
+def check_printed_bridge(text: str) -> int:
+    """Re-add every bridge block of the printed summary. Returns the number of '=' rows verified."""
+    verified, running = 0, None
+    lines = text.splitlines()
+    for line in lines:
+        if line.startswith(("  Revenue, all lines", "  Profit bridge")):
+            running = [None, None]
+            continue
+        if running is None:
+            continue
+        cells = (line[44:60], line[60:76])
+        if not line.strip() or "SAR" not in cells[0]:
+            running = None
+            continue
+        op = line[2]
+        values = [_sar(c) for c in cells]
+        for i, value in enumerate(values):
+            if op == " ":
+                running[i] = value
+            elif op == "+":
+                running[i] += value
+            elif op == "-":
+                running[i] -= value
+            elif op == "=":
+                assert running[i] == value, f"{line.strip()!r}: computed {running[i]}"
+                verified += 1
+    return verified
+
+
+def test_printed_bridge_adds_up_for_every_week(built: psycopg.Connection) -> None:
+    from p3.profit_summary import build_profit_summary
+
+    weeks = [r[0] for r in built.execute("SELECT week_start FROM marts.agg_weekly_kpis WHERE is_full_week ORDER BY 1")]
+    assert len(weeks) == 26
+    for week in weeks[1:]:  # first week has no "previous week" column
+        text = build_profit_summary(built, week)
+        assert f"Week: {week} (Mon)" in text
+        # 3 '=' rows in the revenue block + 2 in the profit bridge, for this week and the previous week
+        assert check_printed_bridge(text) == 10, week
+        # the profit bridge starts from the number the revenue block ends with
+        known = [ln for ln in text.splitlines() if "Net revenue after refunds (known cost)" in ln]
+        assert len(known) == 2 and known[0][4:] == known[1][4:]

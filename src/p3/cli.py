@@ -1,6 +1,7 @@
 """Command-line interface: python -m p3 <command>."""
 
 import argparse
+from datetime import date
 from pathlib import Path
 
 from p3 import SYNTHETIC_NOTICE
@@ -93,7 +94,7 @@ def cmd_profit_summary(args: argparse.Namespace) -> int:
     from p3.profit_summary import build_profit_summary
 
     with connect(get_settings()) as conn:
-        print(build_profit_summary(conn))
+        print(build_profit_summary(conn, args.week))
     return 0
 
 
@@ -130,6 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_dbt)
 
     p = sub.add_parser("profit-summary", help="last full week KPIs, top/bottom products, missing-cost warning")
+    p.add_argument("--week", type=date.fromisoformat, default=None, help="ISO week Monday (default: last full week)")
     p.set_defaults(func=cmd_profit_summary)
 
     return parser
