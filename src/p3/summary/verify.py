@@ -363,6 +363,19 @@ def leaked_field_names(bullets: list[str]) -> list[str]:
     return problems
 
 
+AR_LINE_WORD_RE = re.compile(r"(?<!\w)(?:[وبل]|ال|بال|وال)?(?:خط|خطا|خطاً|خطأ|خطوط|خطين)(?!\w)")
+
+
+def arabic_line_terminology(bullets: list[str]) -> list[str]:
+    """Arabic: order lines are بند / بنود; خط / خطوط reads like خطأ ("error")."""
+    problems = []
+    for i, bullet in enumerate(bullets, start=1):
+        words = sorted(set(m.group(0) for m in AR_LINE_WORD_RE.finditer(bullet)))
+        if words:
+            problems.append(f"bullet {i}: use بند / بنود for order lines instead of {' / '.join(words)}")
+    return problems
+
+
 def missing_top_drivers(facts: dict, checks: list[NumberCheck], top_n: int = 2) -> list[str]:
     """The top profit drivers (by absolute effect) must each be cited by their change (amount or %)."""
     drivers = (facts.get("profit_drivers") or {}).get("drivers") or []
@@ -407,6 +420,8 @@ def verify_summary(text: str, facts: dict, min_bullets: int = 4, max_bullets: in
     problems += unhedged_causal_claims(bullets, per_bullet)
     problems += repeated_numbers(bullets, per_bullet)
     problems += leaked_field_names(bullets)
+    if lang == "ar":
+        problems += arabic_line_terminology(bullets)
     problems += missing_top_drivers(facts, numbers)
     insights = facts.get("insights") or []
     if insights and not mentions_key_number(numbers, insights[0]):

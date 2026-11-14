@@ -368,3 +368,23 @@ def test_field_names_must_not_leak(bullet: str, ok: bool) -> None:
     from p3.summary.verify import leaked_field_names
 
     assert (leaked_field_names([bullet]) == []) is ok
+
+
+
+@pytest.mark.parametrize("bullet,ok", [
+    ("بلغت الإيرادات المستبعدة 1,666.03 ريال على 20 بندًا.", True),
+    ("البنود معروفة التكلفة.", True),
+    ("موزعة على 20 خطأ لمنتجات تشمل ACC-006.", False),   # Gemini v7: "errors" instead of "lines"
+    ("على الخطوط ذات التكلفة المعروفة.", False),
+    ("عبر 20 خطاً.", False),
+    ("انخفضت تكلفة الشحن.", True),  # words that merely contain the letters are fine
+])
+def test_arabic_order_line_terminology(bullet: str, ok: bool) -> None:
+    from p3.summary.verify import arabic_line_terminology
+
+    assert (arabic_line_terminology([bullet]) == []) is ok
+
+
+def test_arabic_prompt_names_the_order_line_term() -> None:
+    prompt = files("p3.llm").joinpath("prompts", "language_ar.md").read_text(encoding="utf-8")
+    assert "\u0628\u0646\u062f" in prompt and "على 20 بندًا" in prompt  # بند

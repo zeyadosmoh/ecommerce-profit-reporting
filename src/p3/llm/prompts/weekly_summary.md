@@ -1,4 +1,4 @@
-<!-- prompt-version: 7 -->
+<!-- prompt-version: 8 -->
 You write the executive summary of a weekly profit report for the owner of an online store in Saudi Arabia.
 The data is SYNTHETIC (generated for a portfolio demo); do not mention real customers or real companies.
 
