@@ -584,9 +584,157 @@
   ],
   "etl_rejects_all_time": 0
  },
+ "profit_drivers": {
+  "basis": "known-cost bridge rows, this week minus previous week, signed by effect on net profit; effects sum exactly to the net profit change",
+  "net_profit_change": {
+   "abs": -1984.49,
+   "unit": "SAR",
+   "direction": "down"
+  },
+  "drivers": [
+   {
+    "rank": 1,
+    "id": "net_revenue_known_cost_ex_vat",
+    "label": "Net revenue after refunds (known cost)",
+    "this_week": 28581.09,
+    "previous_week": 36072.96,
+    "change": {
+     "abs": -7491.87,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -20.8
+    },
+    "effect_on_net_profit": -7491.87,
+    "effect": "hurt"
+   },
+   {
+    "rank": 2,
+    "id": "cogs_known_cost",
+    "label": "COGS",
+    "this_week": 14582.24,
+    "previous_week": 19190.04,
+    "change": {
+     "abs": -4607.8,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -24.0
+    },
+    "effect_on_net_profit": 4607.8,
+    "effect": "helped"
+   },
+   {
+    "rank": 3,
+    "id": "shipping_cost_known_cost_ex_vat",
+    "label": "Shipping cost",
+    "this_week": 2633.19,
+    "previous_week": 3293.81,
+    "change": {
+     "abs": -660.62,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -20.1
+    },
+    "effect_on_net_profit": 660.62,
+    "effect": "helped"
+   },
+   {
+    "rank": 4,
+    "id": "payment_fees_known_cost",
+    "label": "Payment fees",
+    "this_week": 1064.11,
+    "previous_week": 1325.63,
+    "change": {
+     "abs": -261.52,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -19.7
+    },
+    "effect_on_net_profit": 261.52,
+    "effect": "helped"
+   },
+   {
+    "rank": 5,
+    "id": "shipping_refunds_known_cost_ex_vat",
+    "label": "Shipping refunded",
+    "this_week": 43.48,
+    "previous_week": 0.0,
+    "change": {
+     "abs": 43.48,
+     "unit": "SAR",
+     "direction": "up",
+     "pct": null
+    },
+    "effect_on_net_profit": -43.48,
+    "effect": "hurt"
+   },
+   {
+    "rank": 6,
+    "id": "shipping_charged_known_cost_ex_vat",
+    "label": "Shipping charged",
+    "this_week": 1223.05,
+    "previous_week": 1202.13,
+    "change": {
+     "abs": 20.92,
+     "unit": "SAR",
+     "direction": "up",
+     "pct": 1.7
+    },
+    "effect_on_net_profit": 20.92,
+    "effect": "helped"
+   }
+  ],
+  "context": {
+   "orders": {
+    "this_week": 114,
+    "change": {
+     "abs": -18,
+     "unit": "count",
+     "direction": "down",
+     "pct": -13.6
+    }
+   },
+   "aov_ex_vat_products": {
+    "this_week": 270.79,
+    "change": {
+     "abs": -23.02,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -7.8
+    }
+   },
+   "units_sold": {
+    "this_week": 312,
+    "change": {
+     "abs": -99,
+     "unit": "count",
+     "direction": "down",
+     "pct": -24.1
+    }
+   }
+  },
+  "missing_cost_revenue_change": {
+   "abs": -70.7,
+   "unit": "SAR",
+   "direction": "down",
+   "pct": -4.1,
+   "material": false,
+   "note": "data gap (revenue excluded from profit), not a driver unless material"
+  }
+ },
  "insights": [
   {
    "rank": 1,
+   "id": "top_profit_driver",
+   "title": "Largest driver of the net profit change: Net revenue after refunds (known cost)",
+   "key_number": 7491.87,
+   "unit": "SAR",
+   "direction": "down",
+   "effect": "hurt",
+   "impact_sar": 7491.87,
+   "action_hint": "explain the profit change with this driver and the order / AOV context"
+  },
+  {
+   "rank": 2,
    "id": "net_profit_change",
    "title": "Net profit (known cost) vs previous week",
    "key_number": 1984.49,
@@ -597,7 +745,7 @@
    "action_hint": "explain the change with the bridge rows and the product movers"
   },
   {
-   "rank": 2,
+   "rank": 3,
    "id": "missing_cost",
    "title": "Revenue excluded from profit because SKUs have no cost row",
    "key_number": 1666.03,
@@ -611,7 +759,7 @@
    "action_hint": "add cost rows for these SKUs to the cost sheet"
   },
   {
-   "rank": 3,
+   "rank": 4,
    "id": "shipping_subsidy",
    "title": "Shipping cost not recovered from customers",
    "key_number": 1469.9,
@@ -623,7 +771,7 @@
    "action_hint": "review the free-shipping threshold or the flat shipping fee"
   },
   {
-   "rank": 4,
+   "rank": 5,
    "id": "margin_change",
    "title": "Net margin on known-cost lines vs previous week",
    "key_number": 2.84,
@@ -633,7 +781,7 @@
    "action_hint": "check whether the margin change comes from product mix or costs"
   },
   {
-   "rank": 5,
+   "rank": 6,
    "id": "top_profit_riser",
    "title": "Biggest product profit change vs 4-week average",
    "key_number": 545.84,
@@ -646,7 +794,7 @@
    "action_hint": "check price, stock and promotion for this SKU"
   },
   {
-   "rank": 6,
+   "rank": 7,
    "id": "top_profit_faller",
    "title": "Biggest product profit change vs 4-week average",
    "key_number": 382.44,
@@ -663,53 +811,41 @@
   "language": "ar",
   "provider": "gemini",
   "model": "gemini-3.5-flash-lite",
-  "prompt_version": "3",
-  "prompt_sha256": "44bf0c7f2cf2",
+  "prompt_version": "4",
+  "prompt_sha256": "5f332d88e875",
   "attempts": [
    {
     "attempt": 1,
-    "input_tokens": 7576,
-    "output_tokens": 337,
-    "passed": false,
-    "numbers_checked": 14,
-    "unmatched_numbers": [],
-    "problems": [
-     "bullet 2: causal claim without a hedge (بسبب): بلغت الإيرادات المستبعدة من الأرباح بسبب نقص صفوف التكاليف 1,666.03 ريال عبر 20 خطاً لمنتجات مثل SKU ACC-006 وHOM-006."
-    ],
-    "text": "- انخفض صافي الربح (للتكاليف المعروفة) بمقدار 1,984.49 ريال بنسبة 14.7 بالمئة، حيث تراجع صافي الإيرادات إلى 30,247.12 ريال وبلغ صافي الهامش 40.17 بالمئة بارتفاع قدره 2.84 نقطة مئوية مقارنة بالأسبوع السابق.\n- بلغت الإيرادات المستبعدة من الأرباح بسبب نقص صفوف التكاليف 1,666.03 ريال عبر 20 خطاً لمنتجات مثل SKU ACC-006 وHOM-006.\n- بلغ دعم الشحن غير المسترد من العملاء 1,469.9 ريال، منها 1,411.0 ريال مرتبطة بـ 49 طلب شحن مجاني.\n- تغير الأداء العام مقارنة بالأسبوع السابق بانخفاض صافي الإيرادات إلى 30,247.12 ريال ونزول صافي الربح إلى 11,481.12 ريال، بينما ارتفع صافي الهامش على الخطوط ذات التكلفة المعروفة بمقدار 2.84 نقطة مئوية.\n- الإجراء المقترح: إضافة صفوف التكاليف لـ SKU ACC-006 وSKU HOM-006 في جدول التكاليف، ومراجعة حد الشحن المجاني البالغ 299 ريال شامل الضريبة أو رسوم الشحن الثابتة."
-   },
-   {
-    "attempt": 2,
-    "input_tokens": 8035,
-    "output_tokens": 275,
+    "input_tokens": 9284,
+    "output_tokens": 347,
     "passed": true,
-    "numbers_checked": 10,
+    "numbers_checked": 13,
     "unmatched_numbers": [],
     "problems": [],
-    "text": "- انخفض صافي الربح (للتكاليف المعروفة) بمقدار 1,984.49 ريال وبنسبة 14.7 بالمئة مقارنة بالأسبوع السابق.\n- بلغت الإيرادات المستبعدة من الأرباح 1,666.03 ريال عبر 20 خطاً لمنتجات مثل ACC-006 وHOM-006، وربما كان ذلك بسبب نقص صفوف التكاليف.\n- بلغ دعم الشحن غير المسترد من العملاء 1,469.9 ريال، منها 1,411.0 ريال مرتبطة بـ 49 طلب شحن مجاني.\n- مقارنة بالأسبوع السابق، انخفض صافي الإيرادات إلى 30,247.12 ريال، وتراجع صافي الربح إلى 11,481.12 ريال، بينما ارتفع صافي الهامش على الخطوط ذات التكلفة المعروفة بمقدار 2.84 نقطة مئوية.\n- الإجراء المقترح: إضافة صفوف التكاليف لـ ACC-006 وHOM-006 إلى جدول التكاليف، ومراجعة حد الشحن المجاني أو رسوم الشحن الثابتة."
+    "text": "- انخفض صافي الإيرادات بعد المرتجعات (التكلفة المعروفة) بمقدار 7,491.87 ريال، وهو العامل الأكبر الذي أضر بالربح، تزامناً مع انخفاض الطلبات إلى 114 طلباً ومتوسط قيمة الطلب إلى 270.79 ريال.\n- انخفض صافي الربح (التكلفة المعروفة) بمقدار 1,984.49 ريال بنسبة 14.7% ليصل إلى 11,481.12 ريال، وانخفض صافي الإيرادات إلى 30,247.12 ريال، بينما ارتفع صافي هامش الربح على خطوط التكلفة المعروفة بمقدار 2.84 نقطة مئوية ليصل إلى 40.17%.\n- توجد إيرادات بقيمة 1,666.03 ريال مستبعدة من الربح لعدم وجود صففات تكلفة لعدد 20 خطاً، وتحديداً للمنتجين ACC-006 و HOM-006.\n- انخفضت تكلفة البضائع المباعة (التكلفة المعروفة) بمقدار 4,607.80 ريال مما ساعد في دعم الربح، بينما انخفضت تكلفة الشحن بمقدار 660.62 ريال مما ساعد أيضاً في الربح.\n- الإجراء المقترح: إضافة صفوف تكلفة للمنتجات ACC-006 و HOM-006 إلى جدول التكلفة (cost sheet)."
    }
   ],
   "source": "llm",
   "status": "verified",
   "reason": null,
   "tokens": {
-   "input": 15611,
-   "output": 612
+   "input": 9284,
+   "output": 347
   },
   "cost_estimate_usd": null,
   "cost_note": "pricing not configured",
   "bullets": [
-   "انخفض صافي الربح (للتكاليف المعروفة) بمقدار 1,984.49 ريال وبنسبة 14.7 بالمئة مقارنة بالأسبوع السابق.",
-   "بلغت الإيرادات المستبعدة من الأرباح 1,666.03 ريال عبر 20 خطاً لمنتجات مثل ACC-006 وHOM-006، وربما كان ذلك بسبب نقص صفوف التكاليف.",
-   "بلغ دعم الشحن غير المسترد من العملاء 1,469.9 ريال، منها 1,411.0 ريال مرتبطة بـ 49 طلب شحن مجاني.",
-   "مقارنة بالأسبوع السابق، انخفض صافي الإيرادات إلى 30,247.12 ريال، وتراجع صافي الربح إلى 11,481.12 ريال، بينما ارتفع صافي الهامش على الخطوط ذات التكلفة المعروفة بمقدار 2.84 نقطة مئوية.",
-   "الإجراء المقترح: إضافة صفوف التكاليف لـ ACC-006 وHOM-006 إلى جدول التكاليف، ومراجعة حد الشحن المجاني أو رسوم الشحن الثابتة."
+   "انخفض صافي الإيرادات بعد المرتجعات (التكلفة المعروفة) بمقدار 7,491.87 ريال، وهو العامل الأكبر الذي أضر بالربح، تزامناً مع انخفاض الطلبات إلى 114 طلباً ومتوسط قيمة الطلب إلى 270.79 ريال.",
+   "انخفض صافي الربح (التكلفة المعروفة) بمقدار 1,984.49 ريال بنسبة 14.7% ليصل إلى 11,481.12 ريال، وانخفض صافي الإيرادات إلى 30,247.12 ريال، بينما ارتفع صافي هامش الربح على خطوط التكلفة المعروفة بمقدار 2.84 نقطة مئوية ليصل إلى 40.17%.",
+   "توجد إيرادات بقيمة 1,666.03 ريال مستبعدة من الربح لعدم وجود صففات تكلفة لعدد 20 خطاً، وتحديداً للمنتجين ACC-006 و HOM-006.",
+   "انخفضت تكلفة البضائع المباعة (التكلفة المعروفة) بمقدار 4,607.80 ريال مما ساعد في دعم الربح، بينما انخفضت تكلفة الشحن بمقدار 660.62 ريال مما ساعد أيضاً في الربح.",
+   "الإجراء المقترح: إضافة صفوف تكلفة للمنتجات ACC-006 و HOM-006 إلى جدول التكلفة (cost sheet)."
   ],
   "notice": null
  },
  "report": {
   "language": "ar",
-  "generated_at": "2026-11-14T02:12:59+00:00",
+  "generated_at": "2026-11-14T02:25:16+00:00",
   "files": [
    "report.ar.html",
    "report.ar.pdf",
