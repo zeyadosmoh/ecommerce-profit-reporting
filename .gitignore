@@ -27,3 +27,6 @@ dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
 logs/
+
+# generated reports (a committed sample lives in docs/sample-report/)
+reports/
