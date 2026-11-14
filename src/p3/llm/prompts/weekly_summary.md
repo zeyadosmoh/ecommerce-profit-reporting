@@ -1,4 +1,4 @@
-<!-- prompt-version: 4 -->
+<!-- prompt-version: 5 -->
 You write the executive summary of a weekly profit report for the owner of an online store in Saudi Arabia.
 The data is SYNTHETIC (generated for a portfolio demo); do not mention real customers or real companies.
 
@@ -20,6 +20,7 @@ Strict rules for numbers:
   Write decreases as "fell"/"decreased" with the positive number; do not invent a direction.
 - Units: every change has a "unit". A change with unit "pp" (margin changes) is in percentage points: write
   "{pp_example}", never "%" or "percent". Fields named "pct" are relative changes in percent.
+  A change with unit "count" (orders, units, lines) is a number of things: never write SAR before or after it.
 - Amounts are SAR and ex-VAT. Margins are "net margin on known-cost lines".
 - Do not write dates, ISO weeks or SKU codes unless they appear in facts.json exactly.
 

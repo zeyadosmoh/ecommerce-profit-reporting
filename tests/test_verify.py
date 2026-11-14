@@ -46,7 +46,7 @@ def test_invented_or_misrounded_numbers_fail(text: str) -> None:
 
 def test_percent_only_matches_percentage_facts() -> None:
     ok, reason = results("114%")["114%"]
-    assert not ok and reason == "unit: written as percent but the fact is an amount"
+    assert not ok and reason == "unit: written as percent but the fact is a count"
     assert results("114 orders")["114"][0]
 
 
@@ -302,3 +302,21 @@ def test_missing_cost_definition_is_not_a_causal_claim(bullet: str) -> None:
 ])
 def test_direction_word_after_a_decimal_number(text: str, ok: bool) -> None:
     assert all(c.ok for c in check_numbers(text, FACTS)) is ok
+
+
+# ---- counts are not money (Gemini v4 wrote "orders falling SAR 18") -------------------------------
+
+@pytest.mark.parametrize("text,ok", [
+    ("Orders fell by 18 to 114.", True),
+    ("Orders fell 18 (13.6%) to 114 orders.", True),
+    ("Orders fell SAR 18.", False),
+    ("Orders fell by 18 SAR.", False),
+    ("Net profit fell SAR 1,984.49.", True),
+    ("انخفض عدد الطلبات 18 طلباً إلى 114.", True),
+    ("انخفض عدد الطلبات 18 ريال.", False),
+])
+def test_counts_written_as_money_fail(text: str, ok: bool) -> None:
+    checks = check_numbers(text, FACTS)
+    assert all(c.ok for c in checks) is ok, [(c.text, c.reason) for c in checks]
+    if not ok:
+        assert any("written as SAR but the fact is a count" in (c.reason or "") for c in checks)

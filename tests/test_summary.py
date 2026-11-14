@@ -52,7 +52,7 @@ def test_good_summary_passes_first_time() -> None:
     assert (out.source, out.status, out.notice) == ("llm", "verified", None)
     assert len(out.bullets) == 6 and len(llm.calls) == 1
     log = out.log
-    assert log["model"] == "fake-model-1" and log["prompt_version"] == "4"
+    assert log["model"] == "fake-model-1" and log["prompt_version"] == "5"
     assert log["attempts"][0]["passed"] and log["attempts"][0]["numbers_checked"] >= 10
     assert log["tokens"] == {"input": 1000, "output": 200}
     assert log["cost_estimate_usd"] is None and log["cost_note"] == "pricing not configured"
@@ -163,7 +163,7 @@ def test_prompt_explains_sold_this_week() -> None:
 
     en, meta = build_system_prompt("en")
     ar, _ = build_system_prompt("ar")
-    assert meta["prompt_version"] == "4"
+    assert meta["prompt_version"] == "5"
     assert '"sold_this_week": false' in en and '"no sales this week"' in en
     assert '"بلا مبيعات هذا الأسبوع"' in ar
 

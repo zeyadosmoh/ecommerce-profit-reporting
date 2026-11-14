@@ -55,6 +55,8 @@ TOLERANCE_EPS = Decimal("0.000001")
 
 # Unit written right after a number (searched at the end of the number match).
 PCT_WORDS_RE = re.compile(r"\s*(?:%|percent\b|per cent\b|بالمئة|بالمائة|في المئة|في المائة)")
+CURRENCY_AFTER_RE = re.compile(r"\s*(?:SAR\b|ريال|ر\.س)")
+CURRENCY_BEFORE_RE = re.compile(r"(?:\bSAR|ريال|ر\.س\.?)\s*$")
 PP_WORDS_RE = re.compile(r"\s*(?:pp\b|p\.p\.|percentage[- ]points?\b|points?\b|pts\b|"
                          r"نقطة مئوية|نقاط مئوية|نقطتين مئويتين|نقطة|نقاط)")
 
@@ -92,7 +94,7 @@ LEVERS = {
 class Fact:
     value: Decimal
     path: str
-    kind: str  # pct (percent) | pp (percentage points) | amount (SAR, counts, other)
+    kind: str  # pct (percent) | pp (percentage points) | count (whole-number counts) | amount (SAR, other)
     direction: str | None  # set when the fact is part of a change
 
 
@@ -146,7 +148,8 @@ def flatten_facts(facts: object) -> tuple[list[Fact], set[str]]:
                 if isinstance(value, bool) or key in SKIP_KEYS:
                     continue
                 if isinstance(value, (int, float)):
-                    numbers.append(Fact(Decimal(str(value)), f"{path}.{key}".lstrip("."), _kind(key, unit), child_dir))
+                    numbers.append(Fact(Decimal(str(value)), f"{path}.{key}".lstrip("."),
+                                        _kind(key, unit, isinstance(value, int)), child_dir))
                 else:
                     walk(value, f"{path}.{key}".lstrip("."), unit, None)
         elif isinstance(node, list):
@@ -159,7 +162,9 @@ def flatten_facts(facts: object) -> tuple[list[Fact], set[str]]:
     return numbers, strings
 
 
-def _kind(key: str, unit: str | None) -> str:
+def _kind(key: str, unit: str | None, is_int: bool = False) -> str:
+    if is_int and "threshold" not in key:
+        return "count"  # orders, lines, units, ranks... (money is always a float with 2 dp)
     if "pct" in key:
         return "pct"
     if unit == "pp" and key in ("abs", "key_number", "this_week", "previous_week"):
@@ -224,13 +229,17 @@ def check_numbers(text: str, facts: dict) -> list[NumberCheck]:
         half_step = (Decimal(1).scaleb(-len(dec)) * mult) / 2 + TOLERANCE_EPS
         written_unit = "pct" if m.group("pct") or PCT_WORDS_RE.match(masked, m.end()) else (
             "pp" if PP_WORDS_RE.match(masked, m.end()) else None)
+        if written_unit is None and (CURRENCY_AFTER_RE.match(masked, m.end())
+                                     or CURRENCY_BEFORE_RE.search(masked[max(0, m.start() - 8):m.start()])):
+            written_unit = "amount"  # written as money: must not match a count
         token = m.group(0).strip()
         by_value = [f for f in numbers if abs(abs(f.value) - target) <= half_step]
         candidates = [f for f in by_value if written_unit is None or f.kind == written_unit]
         if by_value and not candidates:
             kinds = sorted({f.kind for f in by_value})
-            written = {"pct": "percent", "pp": "percentage points"}[written_unit]
-            facts_unit = " / ".join({"pct": "percent", "pp": "percentage points", "amount": "an amount"}[k] for k in kinds)
+            written = {"pct": "percent", "pp": "percentage points", "amount": "SAR"}[written_unit]
+            facts_unit = " / ".join({"pct": "percent", "pp": "percentage points", "amount": "an amount",
+                                     "count": "a count"}[k] for k in kinds)
             checks.append(NumberCheck(token, str(target), False, matched=by_value[0].path, tolerance=str(half_step),
                                       reason=f"unit: written as {written} but the fact is {facts_unit}"))
             continue
