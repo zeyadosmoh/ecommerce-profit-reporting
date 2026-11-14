@@ -331,7 +331,7 @@ statuses, plus a `unique_combination` test.
 - **Known limitation:** a wrong number can still pass if it happens to equal an unrelated fact. The direction and unit checks and the small fact set reduce this risk. The cause check is
   keyword-based, so a cause stated without one of the listed words is not caught.
 
-**Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. Both samples use a **real Gemini AI summary** (`gemini-3.5-flash-lite`, prompt v7) that passed every check (numbers, direction, units, causes citing profit drivers, top insight, specific action) on the first attempt: `ai_summary.source = "llm"` and `status = "verified"` in `facts.json` / `facts.ar.json`, with tokens and the cost estimate (null: pricing not configured) logged. Regenerate them with `p3 report --out docs/sample-report --preview` and `--lang ar`.
+**Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. Both samples use a **real Gemini AI summary** (`gemini-3.5-flash-lite`; English prompt v7, Arabic prompt v8) that passed every check (numbers, direction, units, causes citing profit drivers, top insight, specific action) on the first attempt: `ai_summary.source = "llm"` and `status = "verified"` in `facts.json` / `facts.ar.json`, with tokens and the cost estimate (null: pricing not configured) logged. Regenerate them with `p3 report --out docs/sample-report --preview` and `--lang ar`.
 
 | English | Arabic |
 |---|---|
