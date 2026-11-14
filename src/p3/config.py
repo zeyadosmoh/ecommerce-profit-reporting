@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     payment_fee_pct: Decimal = Decimal("2.75")
     payment_fee_fixed: Decimal = Decimal("1.00")
 
+    # LLM (same provider / env names as the invoice-extraction project). Empty values mean "unset".
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-3.5-flash-lite"
+    gemini_api_key: str = ""
+    llm_api_key: str = ""
+    llm_temperature: str = ""
+    llm_price_input_per_mtok: str = ""
+    llm_price_output_per_mtok: str = ""
+    report_lang: str = "en"
+    reports_dir: Path = Path("reports")
+
     def dsn(self, dbname: str | None = None) -> str:
         return (
             f"host={self.postgres_host} port={self.postgres_port} "
