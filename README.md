@@ -32,7 +32,7 @@ Full samples: [EN PDF](docs/sample-report/2026-W45/report.pdf) · [AR PDF](docs/
   its direction (rose/fell, ارتفع/انخفض), its unit (%, percentage points, SAR, counts), and that every stated cause
   cites a real profit driver. It also checks that the top insight is covered and that the action names a SKU or
   lever. Failures trigger one retry, then a deterministic template. Both samples above passed on the first attempt.
-- **Tested end to end.** 193 pytest tests and 68 dbt data tests on 17 models, including:
+- **Tested end to end.** 209 pytest tests and 68 dbt data tests on 17 models, including:
   - idempotent incremental ingestion
   - a failed run leaving no partial rows
   - English and Arabic verifier cases
