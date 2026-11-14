@@ -364,6 +364,7 @@
    {
     "sku": "HOM-001",
     "product": "Majlis Floor Cushion",
+    "sold_this_week": true,
     "net_revenue_this_week": 1732.16,
     "net_revenue_prev4_avg": 373.5,
     "revenue_change": {
@@ -382,6 +383,7 @@
    {
     "sku": "PRF-001",
     "product": "Oud Royal Eau de Parfum 50ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 2029.56,
     "net_revenue_prev4_avg": 1606.74,
     "revenue_change": {
@@ -400,6 +402,7 @@
    {
     "sku": "PRF-007",
     "product": "Discovery Set 5x8ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 1493.21,
     "net_revenue_prev4_avg": 1068.06,
     "revenue_change": {
@@ -420,6 +423,7 @@
    {
     "sku": "PRF-003",
     "product": "Amber Nights EDP 100ml",
+    "sold_this_week": false,
     "net_revenue_this_week": 0.0,
     "net_revenue_prev4_avg": 640.25,
     "revenue_change": {
@@ -438,6 +442,7 @@
    {
     "sku": "ABY-002",
     "product": "Linen Kimono Abaya",
+    "sold_this_week": true,
     "net_revenue_this_week": 303.48,
     "net_revenue_prev4_avg": 963.55,
     "revenue_change": {
@@ -456,6 +461,7 @@
    {
     "sku": "ABY-003",
     "product": "Embroidered Bisht Abaya",
+    "sold_this_week": true,
     "net_revenue_this_week": 1432.17,
     "net_revenue_prev4_avg": 2118.42,
     "revenue_change": {
@@ -476,6 +482,7 @@
    {
     "sku": "ACC-006",
     "product": "Magnetic Car Mount",
+    "sold_this_week": true,
     "net_revenue_this_week": 718.22,
     "net_revenue_prev4_avg": 856.73,
     "revenue_change": {
@@ -487,6 +494,7 @@
    {
     "sku": "HOM-006",
     "product": "Oud Reed Diffuser 200ml",
+    "sold_this_week": true,
     "net_revenue_this_week": 947.81,
     "net_revenue_prev4_avg": 674.13,
     "revenue_change": {

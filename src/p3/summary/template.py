@@ -39,12 +39,16 @@ def _english(f: dict) -> list[str]:
     movers_text = []
     if movers["fallers"]:
         m = movers["fallers"][0]
-        movers_text.append(f"the biggest profit drop was {m['product']} at SAR {m['net_profit_this_week']:,.2f} "
-                           f"vs a 4-week average of SAR {m['net_profit_prev4_avg']:,.2f}")
+        if m["sold_this_week"]:
+            movers_text.append(f"the biggest profit drop was {m['product']} at SAR {m['net_profit_this_week']:,.2f} "
+                               f"vs a 4-week average of SAR {m['net_profit_prev4_avg']:,.2f}")
+        else:
+            movers_text.append(f"the biggest profit drop was {m['product']}, with no sales this week "
+                               f"(4-week average net profit SAR {m['net_profit_prev4_avg']:,.2f})")
     if movers["risers"]:
         m = movers["risers"][0]
         movers_text.append(f"the biggest gain was {m['product']} at SAR {m['net_profit_this_week']:,.2f} "
-                           f"vs SAR {m['net_profit_prev4_avg']:,.2f}")
+                           f"vs a 4-week average of SAR {m['net_profit_prev4_avg']:,.2f}")
     if movers_text:
         bullets.append("Product movers: " + "; ".join(movers_text) + ".")
     bullets.append(
@@ -74,8 +78,12 @@ def _arabic(f: dict) -> list[str]:
     ]
     if movers["fallers"]:
         m = movers["fallers"][0]
-        bullets.append(f"أكبر تراجع في الربح: {m['product']} بصافي ربح {m['net_profit_this_week']:,.2f} ريال "
-                       f"مقابل متوسط 4 أسابيع {m['net_profit_prev4_avg']:,.2f} ريال.")
+        if m["sold_this_week"]:
+            bullets.append(f"أكبر تراجع في الربح: {m['product']} بصافي ربح {m['net_profit_this_week']:,.2f} ريال "
+                           f"مقابل متوسط 4 أسابيع {m['net_profit_prev4_avg']:,.2f} ريال.")
+        else:
+            bullets.append(f"أكبر تراجع في الربح: {m['product']}، بلا مبيعات هذا الأسبوع "
+                           f"(متوسط صافي الربح في 4 أسابيع {m['net_profit_prev4_avg']:,.2f} ريال).")
     bullets.append(
         f"تكلفة الشحن تجاوزت رسوم الشحن المحصّلة بمبلغ {ship['subsidy']:,.2f} ريال: {ship['free_shipping_part']:,.2f} "
         f"ريال من {ship['free_shipping_orders']} طلب بشحن مجاني و{ship['paid_shipping_part']:,.2f} ريال من طلبات "

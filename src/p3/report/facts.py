@@ -192,6 +192,7 @@ def build_movers(conn: psycopg.Connection, week_start: date) -> dict:
                coalesce(sum(p.net_profit_known_cost) FILTER (WHERE p.week_start < %(w)s), 0) AS profit_prev_sum,
                coalesce(sum(p.net_revenue_ex_vat) FILTER (WHERE p.week_start = %(w)s), 0) AS revenue_now,
                coalesce(sum(p.net_revenue_ex_vat) FILTER (WHERE p.week_start < %(w)s), 0) AS revenue_prev_sum,
+               coalesce(sum(p.units_sold) FILTER (WHERE p.week_start = %(w)s), 0) > 0 AS sold_this_week,
                coalesce(sum(p.missing_cost_net_revenue_ex_vat), 0) <> 0
                  OR bool_or(p.missing_cost_lines > 0) AS has_missing_cost
         FROM marts.agg_product_weekly AS p
@@ -204,6 +205,8 @@ def build_movers(conn: psycopg.Connection, week_start: date) -> dict:
         item = {
             "sku": r["sku"],
             "product": r["product_name"],
+            # False = no units sold this week: its 0.00 this-week figures mean "no sales", not a loss
+            "sold_this_week": bool(r["sold_this_week"]),
             "net_revenue_this_week": money(r["revenue_now"]),
             "net_revenue_prev4_avg": money(revenue_avg),
             "revenue_change": change(r["revenue_now"], revenue_avg),

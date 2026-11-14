@@ -15,6 +15,7 @@ from p3.summary.verify import Verification, parse_bullets, verify_summary
 
 MIN_BULLETS, MAX_BULLETS = 4, 6
 LANGUAGES = {"en": "English", "ar": "Arabic"}
+NO_SALES_PHRASE = {"en": "no sales this week", "ar": "بلا مبيعات هذا الأسبوع"}
 POSSIBLE_EXAMPLE = {"en": "a possible cause is the free-shipping threshold",
                     "ar": "سبب محتمل: حدّ الشحن المجاني"}
 NOTICE_FAILED = "AI summary unavailable: failed number check"
@@ -35,7 +36,8 @@ def build_system_prompt(lang: str) -> tuple[str, dict]:
     language_rules = load_prompt("language_ar.md").text if lang == "ar" else ""
     text = prompt.text.format(bullet_min=MIN_BULLETS, bullet_max=MAX_BULLETS, language_name=LANGUAGES[lang],
                               action_label=ACTION_LABEL[lang], possible_word=POSSIBLE_WORD[lang],
-                              possible_example=POSSIBLE_EXAMPLE[lang], language_rules=language_rules)
+                              possible_example=POSSIBLE_EXAMPLE[lang], no_sales_phrase=NO_SALES_PHRASE[lang],
+                              language_rules=language_rules)
     # Hash the exact system prompt sent (base prompt + language rules), so EN and AR are distinguishable.
     return text, {"prompt_version": prompt.version, "prompt_sha256": hashlib.sha256(text.encode()).hexdigest()[:12]}
 

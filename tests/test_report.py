@@ -85,3 +85,14 @@ def test_rejects_non_monday_and_partial_weeks(built: psycopg.Connection) -> None
         build_facts(built, date(2026, 11, 3))
     with pytest.raises(FactsError):
         build_facts(built, date(2026, 11, 9))
+
+
+def test_movers_flag_products_without_sales(built: psycopg.Connection, settings: Settings, tmp_path: Path) -> None:
+    facts = build_facts(built, WEEK)
+    movers = facts["movers"]["risers"] + facts["movers"]["fallers"] + facts["movers"]["missing_cost_products"]
+    assert all(isinstance(m["sold_this_week"], bool) for m in movers)
+    unsold = [m for m in movers if not m["sold_this_week"]]
+    assert unsold and all(m["net_revenue_this_week"] == 0 for m in unsold)
+    assert all(m["net_revenue_this_week"] != 0 for m in movers if m["sold_this_week"])
+    files = build_report(built, settings, WEEK, "en", use_ai=False, out_dir=tmp_path)
+    assert "no sales this week" in files.html.read_text()

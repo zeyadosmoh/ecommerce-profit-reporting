@@ -50,7 +50,7 @@ def test_good_summary_passes_first_time() -> None:
     assert (out.source, out.status, out.notice) == ("llm", "verified", None)
     assert len(out.bullets) == 5 and len(llm.calls) == 1
     log = out.log
-    assert log["model"] == "fake-model-1" and log["prompt_version"] == "1"
+    assert log["model"] == "fake-model-1" and log["prompt_version"] == "2"
     assert log["attempts"][0]["passed"] and log["attempts"][0]["numbers_checked"] >= 10
     assert log["tokens"] == {"input": 1000, "output": 200}
     assert log["cost_estimate_usd"] is None and log["cost_note"] == "pricing not configured"
@@ -135,3 +135,32 @@ def test_wrong_bullet_count_is_a_failure() -> None:
     out = generate_summary(FACTS, FakeLLM(three, three), "en")
     assert out.status == "failed_number_check"
     assert any("bullets" in p for p in out.log["attempts"][0]["problems"])
+
+
+# ---- movers without sales this week ---------------------------------------------------------
+
+def test_mover_without_sales_is_described_as_no_sales_not_a_loss() -> None:
+    faller = FACTS["movers"]["fallers"][0]
+    assert faller["sku"] == "PRF-003" and faller["sold_this_week"] is False  # W45 fixture: no units sold
+    en = " ".join(template_summary(FACTS, "en"))
+    assert f"{faller['product']}, with no sales this week" in en
+    assert f"{faller['product']} at SAR 0.00" not in en
+    ar = " ".join(template_summary(FACTS, "ar"))
+    assert "بلا مبيعات هذا الأسبوع" in ar and "بصافي ربح 0.00" not in ar
+
+
+def test_mover_with_sales_keeps_the_profit_comparison() -> None:
+    facts = json.loads(json.dumps(FACTS))
+    facts["movers"]["fallers"][0]["sold_this_week"] = True
+    en = " ".join(template_summary(facts, "en"))
+    assert "no sales this week" not in en and "at SAR 0.00 vs a 4-week average of SAR 382.44" in en
+
+
+def test_prompt_explains_sold_this_week() -> None:
+    from p3.summary.generate import build_system_prompt
+
+    en, meta = build_system_prompt("en")
+    ar, _ = build_system_prompt("ar")
+    assert meta["prompt_version"] == "2"
+    assert '"sold_this_week": false' in en and '"no sales this week"' in en
+    assert '"بلا مبيعات هذا الأسبوع"' in ar

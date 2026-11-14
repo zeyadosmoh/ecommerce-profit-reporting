@@ -101,7 +101,7 @@ footer { margin-top:14px; color:var(--muted); font-size:9px; border-top:1px soli
   {% for group, items in [(t.risers, f.movers.risers), (t.fallers, f.movers.fallers)] %}{% for m in items %}
   <tr><td class="{{ 'good' if m.profit_change.direction == 'up' else 'bad' }}">{{ group if loop.first else '' }}</td>
       <td><span class="num">{{ m.sku }}</span> {{ m.product }}</td>
-      <td class="r num">{{ money(m.net_profit_this_week) }}</td><td class="r num">{{ money(m.net_profit_prev4_avg) }}</td>
+      <td class="r">{% if m.sold_this_week %}<span class="num">{{ money(m.net_profit_this_week) }}</span>{% else %}<span class="sub">{{ t.no_sales }}</span>{% endif %}</td><td class="r num">{{ money(m.net_profit_prev4_avg) }}</td>
       <td class="r num {{ 'good' if m.profit_change.direction == 'up' else 'bad' }}">{{ signed(m.profit_change.abs) }} ({{ pct(m.profit_change.pct) }})</td>
       <td class="r num">{{ signed(m.revenue_change.abs) }} ({{ pct(m.revenue_change.pct) }})</td></tr>
   {% endfor %}{% endfor %}
