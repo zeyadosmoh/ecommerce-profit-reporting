@@ -30,4 +30,5 @@ p3 = ["db/*.sql"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = ["dbt: needs a full dbt build against p3_test (slower)"]
 filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
