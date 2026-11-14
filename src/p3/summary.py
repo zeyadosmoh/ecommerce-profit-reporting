@@ -13,8 +13,10 @@ docker compose up -d --wait                  # Postgres 16 -> 127.0.0.1:5436
 .venv/bin/python -m p3 init-db               # raw schema (idempotent)
 .venv/bin/python -m p3 serve &               # mock store API on 127.0.0.1:8008
 .venv/bin/python -m p3 ingest                # run twice: the 2nd run upserts 0 rows
+.venv/bin/python -m p3 dbt build             # profit models + dbt tests
 .venv/bin/python -m pytest                   # uses the separate p3_test database
-.venv/bin/python -m p3 summary"""
+.venv/bin/python -m p3 summary
+.venv/bin/python -m p3 profit-summary"""
 
 
 def build_summary(conn: psycopg.Connection) -> str:

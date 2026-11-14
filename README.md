@@ -11,7 +11,7 @@ AI-written summary whose numbers are checked against the data.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Scaffold, synthetic data, mock WooCommerce API, incremental ingestion into Postgres, tests | ✅ done |
-| 2 | dbt models + tests: profit per order line / order / product / week | planned |
+| 2 | dbt models + tests: profit per order line / order / product / week | ✅ done |
 | 3 | Weekly PDF/HTML report, LLM summary with number verification | planned |
 | 4 | n8n weekly schedule + email via Mailpit, GitHub Actions CI | planned |
 
@@ -42,7 +42,11 @@ docker compose up -d --wait                  # Postgres 16 -> 127.0.0.1:5436
 .venv/bin/python -m p3 ingest                # run twice: the 2nd run upserts 0 rows
 .venv/bin/python -m pytest                   # uses the separate p3_test database
 .venv/bin/python -m p3 summary               # counts, rejects, runs, watermarks, missing-cost SKUs
+.venv/bin/python -m p3 dbt build             # Phase 2: profit models + all dbt tests (database p3)
+.venv/bin/python -m p3 profit-summary        # last full week KPIs, top/bottom products, missing-cost warning
 ```
+
+`pytest -m "not dbt"` skips the slower dbt tests. The full suite also builds the dbt project against `p3_test`.
 
 Other commands:
 - `p3 serve --inject-faults N` serves N orders malformed so you can watch the reject path. It is off by default.
@@ -113,6 +117,84 @@ can be pulled incrementally. Real WooCommerce only nests them under each order. 
 - **Retries:** transport errors, 429 and 5xx responses retry with exponential backoff (5 attempts). Other 4xx
   errors fail fast.
 
+## Profit models (dbt, Phase 2)
+
+**How dbt runs:** dbt-core 1.12.6 and dbt-postgres 1.11.0 are installed in the project `.venv`. That
+pairing already runs on Python 3.14 in a sibling project, so there's no Docker image and nothing
+system-wide. `python -m p3 dbt <args>` passes the `.env` credentials as environment variables, and
+`dbt/profiles.yml` reads only `env_var(...)`.
+
+**Layers:**
+- `staging`: one view per raw table, typed and renamed, plus `stg_refund_lines` unnested from refund JSON.
+- `intermediate`:
+  - `int_line_costs`: effective-dated cost per line
+  - `int_order_allocations`: order amounts split across lines
+  - `int_line_refunds`: refund effects per line
+  - `int_profit_ledger`: sale and refund events, each dated into a week
+- `marts`:
+  - `fct_order_lines_profit`
+  - `fct_orders_profit`
+  - `agg_product_weekly`
+  - `agg_weekly_kpis`
+  - `dq_issues`
+
+### Accounting rules
+1. **Revenue is ex-VAT.** Line net revenue is the WooCommerce line `total`: ex-VAT, after discount.
+   Shipping charged is `shipping_total`, also ex-VAT. VAT (15%) is owed to ZATCA, so it is never revenue
+   or cost. The `*_tax` columns are used only in reconciliation tests.
+2. **Order status.** Only `completed`, `processing` and `refunded` orders count (dbt var
+   `revenue_statuses`). Cancelled, failed and pending orders are excluded and listed in `dq_issues`
+   as `excluded_order_status`.
+3. **Allocation.** Shipping charged, shipping cost and the payment gateway fee are order-level amounts.
+   Each is allocated to lines in proportion to line net revenue, using **largest-remainder rounding in
+   halalas**: floor every share, then give the leftover halalas to the largest fractional parts (ties go
+   to the lowest line id). Allocations therefore sum to the order amount exactly. If every line is free,
+   the lines get equal shares. Refunded shipping is allocated per refund in the same way.
+4. **COGS** = (unit_cost + packaging_cost) × qty. It uses the cost row with the **latest `effective_from`
+   on or before the order date**, in store-local time (var `store_timezone`, default `Asia/Riyadh`).
+5. **Refunds** reduce revenue (and refunded shipping reduces shipping charged) in the refund date's week.
+   Var `refund_week_basis` takes `refund_date` (the default) or `order_date`. Refunded units go back to
+   stock, so their COGS is reversed at the cost used on the original sale. **Payment fees and shipping
+   cost are not recovered.**
+6. **Missing cost.** A line whose SKU has no applicable cost row gets `cost_missing = true` and
+   **NULL** COGS, gross profit and net profit, never zero.
+   - **Revenue and fees** totals still include these lines, and so do refunds of them.
+   - **Profit and margin** columns cover known-cost lines only, and are suffixed `_known_cost`.
+   - **Disclosure:** every mart shows `missing_cost_lines` and `missing_cost_net_revenue_ex_vat`.
+   - **Orders:** an order with any missing-cost line has NULL `net_profit`, and `net_profit_known_cost`
+     covers the rest of its lines.
+7. **Weeks** are ISO weeks, Monday to Sunday, in store-local time (`week_start` is the Monday).
+
+### Metric definitions
+- **`net_revenue_ex_vat`**: product net revenue ex-VAT (after discounts) minus refunded product revenue.
+  Shipping is excluded.
+- **`refunds_ex_vat`**: refunded product revenue plus refunded shipping, ex-VAT. It is informational,
+  because both are already netted out of revenue and shipping charged.
+- **`net_profit_known_cost`** = net revenue − COGS + shipping charged − shipping cost − payment fees,
+  summed over known-cost lines only.
+- **`net_margin_pct_known_cost`** = `net_profit_known_cost` ÷ net revenue of known-cost lines × 100.
+  It is always shown next to the excluded `missing_cost_net_revenue_ex_vat`.
+- **`aov_ex_vat_products`**: product net revenue ex-VAT, before refunds, excluding shipping, divided by
+  the number of revenue-status orders. This is the only AOV definition in the project.
+
+### Tests
+**Generic dbt tests:** `unique`, `not_null`, `relationships` and `accepted_values` on keys and
+statuses, plus a `unique_combination` test.
+
+**Singular dbt tests:**
+- allocations sum exactly to the order and refund amounts
+- line revenue plus shipping reconciles to the raw `total − total_tax`
+- effective-dated costs pick the right row, and a real cost change is exercised on both sides
+- missing-cost lines never carry COGS or profit
+- weekly and product-weekly totals tie to the order lines for 15 metrics
+- VAT never appears in revenue
+
+**pytest:**
+- an independent cross-check recomputes the whole period's revenue, COGS and net profit from the raw
+  tables in plain Python and matches the marts to the halala
+- 3 golden orders (a coupon, a partial refund, a missing-cost SKU) with hand-derived expected numbers
+  written out in the test
+
 ## Design trade-offs (one line each)
 
 - **Extract fully, then load in one transaction:** no DB transaction is held open across network retries, at the
@@ -131,6 +213,12 @@ can be pulled incrementally. Real WooCommerce only nests them under each order. 
 - **A structurally broken cost sheet** (unreachable, or missing columns) **fails the whole run**, keeping store data
   and costs consistent with each other.
 - **No foreign key from refunds to orders:** a refund is never lost because its order was rejected.
+- **Ledger of sale and refund events:** refunds can land in a different week from the sale, and
+  `fct_order_lines_profit` is built independently of the ledger, so the weekly tie-out test means something.
+- **Largest-remainder allocation in SQL (a macro, no dbt_utils):** exact to the halala with no packages
+  to download. The cost is a few window functions per allocated amount.
+- **Missing-cost profit is NULL rather than estimated:** profit is understated, never overstated, and the
+  excluded revenue is printed next to every margin.
 - **A CLI instead of a Makefile:** fewer moving parts (`python -m p3 …`), and `make` is not required.
 
 ## Tests
