@@ -1,4 +1,4 @@
-<!-- prompt-version: 6 -->
+<!-- prompt-version: 7 -->
 Arabic rules:
 - Write Modern Standard Arabic suitable for a Saudi business owner. Use Western digits (0-9).
 - Causes of the profit change must cite a profit driver number (for example: "انخفض صافي الإيرادات بعد المرتجعات

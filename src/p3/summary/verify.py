@@ -350,6 +350,19 @@ def repeated_numbers(bullets: list[str], checks: list[list[NumberCheck]]) -> lis
     return problems
 
 
+FIELD_NAME_RE = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b")
+
+
+def leaked_field_names(bullets: list[str]) -> list[str]:
+    """JSON field names (previous_week, net_profit_known_cost, ...) must not appear in reader-facing text."""
+    problems = []
+    for i, bullet in enumerate(bullets, start=1):
+        names = sorted(set(FIELD_NAME_RE.findall(bullet)))
+        if names:
+            problems.append(f"bullet {i}: write plain words instead of field names ({', '.join(names)})")
+    return problems
+
+
 def missing_top_drivers(facts: dict, checks: list[NumberCheck], top_n: int = 2) -> list[str]:
     """The top profit drivers (by absolute effect) must each be cited by their change (amount or %)."""
     drivers = (facts.get("profit_drivers") or {}).get("drivers") or []
@@ -393,6 +406,7 @@ def verify_summary(text: str, facts: dict, min_bullets: int = 4, max_bullets: in
     numbers = [c for checks in per_bullet for c in checks]
     problems += unhedged_causal_claims(bullets, per_bullet)
     problems += repeated_numbers(bullets, per_bullet)
+    problems += leaked_field_names(bullets)
     problems += missing_top_drivers(facts, numbers)
     insights = facts.get("insights") or []
     if insights and not mentions_key_number(numbers, insights[0]):

@@ -323,6 +323,7 @@ statuses, plus a `unique_combination` test.
 - **No circular explanations:** a fact number may appear only once per bullet (constants such as the 4-week
   window are exempt), and the top 2 profit drivers must both be cited, so the offset (for example lower COGS) is
   never left out.
+- **Plain words:** JSON field names (`previous_week`, `net_profit_known_cost`, ...) must not appear in the text.
 - **Substance:** the summary must quote the top insight's key number (or its % change), and the recommended
   action must name a SKU from the facts or a concrete lever (free-shipping threshold, shipping fee, cost sheet, ...).
 - **On failure:** the summary is regenerated once, with the list of bad numbers and problems. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".

@@ -354,3 +354,17 @@ def test_no_fact_number_twice_in_one_bullet(bullet: str, ok: bool) -> None:
 def test_top_two_drivers_must_be_cited(text: str, lang: str, missing: int) -> None:
     problems = [p for p in bullet_problems(text, lang) if "is not cited" in p]
     assert len(problems) == missing, problems
+
+
+
+@pytest.mark.parametrize("bullet,ok", [
+    ("Orders fell from 132 to 114 and AOV fell SAR 23.02.", True),
+    ("Alongside 132 previous_week orders falling to 114 this_week orders.", False),  # Gemini v6, attempt 2
+    ("Net profit (net_profit_known_cost) fell 14.7%.", False),
+    ("انخفضت الطلبات من 132 إلى 114 (previous_week).", False),
+    ("Add cost rows for ACC-006 to the cost sheet; review the free-shipping threshold.", True),
+])
+def test_field_names_must_not_leak(bullet: str, ok: bool) -> None:
+    from p3.summary.verify import leaked_field_names
+
+    assert (leaked_field_names([bullet]) == []) is ok
