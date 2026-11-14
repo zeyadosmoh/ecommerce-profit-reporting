@@ -811,41 +811,41 @@
   "language": "en",
   "provider": "gemini",
   "model": "gemini-3.5-flash-lite",
-  "prompt_version": "4",
-  "prompt_sha256": "0441a68b9d90",
+  "prompt_version": "5",
+  "prompt_sha256": "158da7b97dab",
   "attempts": [
    {
     "attempt": 1,
-    "input_tokens": 9026,
-    "output_tokens": 196,
+    "input_tokens": 9056,
+    "output_tokens": 199,
     "passed": true,
-    "numbers_checked": 10,
+    "numbers_checked": 9,
     "unmatched_numbers": [],
     "problems": [],
-    "text": "- Net revenue after refunds fell SAR 7,562.57, net profit (known cost) decreased SAR 1,984.49, and net margin on known-cost lines increased 2.84 percentage points.\n- Net revenue after refunds (known cost) fell SAR 7,491.87, which hurt profit, driven by orders falling SAR 18 (count unit) and AOV falling SAR 23.02.\n- COGS fell SAR 4,607.80, which helped profit, alongside shipping cost falling SAR 660.62, which helped profit.\n- Revenue excluded from profit because SKUs have no cost row was SAR 1,666.03 across 20 lines.\n- Recommended action: add cost rows for SKU ACC-006 and SKU HOM-006 to the cost sheet."
+    "text": "- Net revenue after refunds (known cost) fell SAR 7,491.87, which hurt profit, driven by net revenue after refunds (known cost) falling SAR 7,491.87.\n- Net profit (known cost) decreased SAR 1,984.49, which is a 14.7 percent decrease.\n- Revenue excluded from profit because SKUs have no cost row was SAR 1,666.03 across 20 lines for SKUs ACC-006 and HOM-006.\n- Compared to the previous week, net revenue decreased SAR 7,562.57, net profit (known cost) decreased SAR 1,984.49, and net margin on known-cost lines increased 2.84 percentage points.\n- Recommended action: add cost rows for SKU ACC-006 to the cost sheet."
    }
   ],
   "source": "llm",
   "status": "verified",
   "reason": null,
   "tokens": {
-   "input": 9026,
-   "output": 196
+   "input": 9056,
+   "output": 199
   },
   "cost_estimate_usd": null,
   "cost_note": "pricing not configured",
   "bullets": [
-   "Net revenue after refunds fell SAR 7,562.57, net profit (known cost) decreased SAR 1,984.49, and net margin on known-cost lines increased 2.84 percentage points.",
-   "Net revenue after refunds (known cost) fell SAR 7,491.87, which hurt profit, driven by orders falling SAR 18 (count unit) and AOV falling SAR 23.02.",
-   "COGS fell SAR 4,607.80, which helped profit, alongside shipping cost falling SAR 660.62, which helped profit.",
-   "Revenue excluded from profit because SKUs have no cost row was SAR 1,666.03 across 20 lines.",
-   "Recommended action: add cost rows for SKU ACC-006 and SKU HOM-006 to the cost sheet."
+   "Net revenue after refunds (known cost) fell SAR 7,491.87, which hurt profit, driven by net revenue after refunds (known cost) falling SAR 7,491.87.",
+   "Net profit (known cost) decreased SAR 1,984.49, which is a 14.7 percent decrease.",
+   "Revenue excluded from profit because SKUs have no cost row was SAR 1,666.03 across 20 lines for SKUs ACC-006 and HOM-006.",
+   "Compared to the previous week, net revenue decreased SAR 7,562.57, net profit (known cost) decreased SAR 1,984.49, and net margin on known-cost lines increased 2.84 percentage points.",
+   "Recommended action: add cost rows for SKU ACC-006 to the cost sheet."
   ],
   "notice": null
  },
  "report": {
   "language": "en",
-  "generated_at": "2026-11-14T02:25:11+00:00",
+  "generated_at": "2026-11-14T02:35:37+00:00",
   "files": [
    "report.html",
    "report.pdf",
