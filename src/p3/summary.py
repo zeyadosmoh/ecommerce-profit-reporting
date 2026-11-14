@@ -16,7 +16,9 @@ docker compose up -d --wait                  # Postgres 16 -> 127.0.0.1:5436
 .venv/bin/python -m p3 dbt build             # profit models + dbt tests
 .venv/bin/python -m pytest                   # uses the separate p3_test database
 .venv/bin/python -m p3 summary
-.venv/bin/python -m p3 profit-summary"""
+.venv/bin/python -m p3 profit-summary
+.venv/bin/playwright install chromium        # once per user (no system-wide install)
+.venv/bin/python -m p3 report                # weekly report (+ --lang ar)"""
 
 
 def build_summary(conn: psycopg.Connection) -> str:

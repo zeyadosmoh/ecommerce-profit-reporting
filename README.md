@@ -12,7 +12,7 @@ AI-written summary whose numbers are checked against the data.
 |---|---|---|
 | 1 | Scaffold, synthetic data, mock WooCommerce API, incremental ingestion into Postgres, tests | ✅ done |
 | 2 | dbt models + tests: profit per order line / order / product / week | ✅ done |
-| 3 | Weekly PDF/HTML report, LLM summary with number verification | planned |
+| 3 | Weekly PDF/HTML report, LLM summary with number verification | ✅ done |
 | 4 | n8n weekly schedule + email via Mailpit, GitHub Actions CI | planned |
 
 ## Architecture (Phase 1)
@@ -44,6 +44,8 @@ docker compose up -d --wait                  # Postgres 16 -> 127.0.0.1:5436
 .venv/bin/python -m p3 summary               # counts, rejects, runs, watermarks, missing-cost SKUs
 .venv/bin/python -m p3 dbt build             # Phase 2: profit models + all dbt tests (database p3)
 .venv/bin/python -m p3 profit-summary        # last full week KPIs, top/bottom products, missing-cost warning
+.venv/bin/playwright install chromium        # Phase 3, once per user: Chromium for HTML -> PDF
+.venv/bin/python -m p3 report                # weekly report: facts.json + report.html + report.pdf
 ```
 
 `pytest -m "not dbt"` skips the slower dbt tests. The full suite also builds the dbt project against `p3_test`.
@@ -208,6 +210,62 @@ statuses, plus a `unique_combination` test.
   written out in the test
 - the printed `profit-summary` bridge adds up, row by row, for all 26 weeks
 
+## Weekly report and AI summary (Phase 3)
+
+```bash
+.venv/bin/playwright install chromium        # once, per user (~/.cache/ms-playwright); no apt, no sudo
+.venv/bin/python -m p3 report                # last full week -> reports/2026-W45/{facts.json,report.html,report.pdf}
+.venv/bin/python -m p3 report --lang ar      # Arabic -> facts.ar.json, report.ar.html, report.ar.pdf
+.venv/bin/python -m p3 report --week 2026-10-26 --no-ai --preview
+```
+
+**How it works:**
+- `facts.json` holds every number the report and the AI may use, precomputed in Python from the marts:
+  - KPIs with this week, last week, absolute and % change, and a precomputed direction (`up`/`down`/`flat`)
+  - the profit bridge and the excluded block
+  - 8-week trends
+  - product movers: net profit (known cost) vs the previous 4-week average, top 3 each way, with the revenue change on the same row
+  - the shipping subsidy
+  - the missing-cost warning
+  - data-quality counts
+- The report itself is a self-contained HTML file. Charts are matplotlib PNGs and the Arabic font (Amiri, OFL) is embedded. The PDF is printed by Playwright using Chromium installed per user, with no system-wide install.
+- **Shipping subsidy** = shipping cost − shipping charged, for the week's orders at sale time, ex-VAT. It is reported as two amounts that sum to the total exactly:
+  - the **free-shipping part**: the cost of free-shipping orders (basket ≥ 299 SAR incl. VAT)
+  - the **paid-shipping part**: cost − charged on orders that paid for shipping. It can be negative.
+
+**AI summary:**
+- **Provider:** Gemini through `google-genai`, with the same environment variables as the invoice-extraction project: `LLM_PROVIDER`, `LLM_MODEL`, `GEMINI_API_KEY` (or `LLM_API_KEY`) and `LLM_TEMPERATURE`. The prompt is versioned in `src/p3/llm/prompts/`.
+- **What it writes:** 4–6 bullets in English or Arabic (`REPORT_LANG` or `--lang`): what changed, what hurt or helped profit, and one recommended action. Any cause the data doesn't prove must be labelled "possible" / "محتمل".
+- **What it receives:** only aggregated weekly numbers from `facts.json`. It never sees customer names, emails, addresses or order-level personal data.
+- **No key or an API error:** the report uses a deterministic template summary and never crashes.
+
+**Number verifier:**
+- **Normalising:** it finds every number and percentage in the AI text and handles formats such as `1,234.5`, `1.2k`, `11.5 ألف`, `12%`, Arabic-Indic digits and `٪`.
+- **Matching:** each number is checked against `facts.json`, allowing for the rounding the text uses. Dates, ISO weeks and SKUs must appear in the facts exactly.
+- **Direction check:** if a number matches a change, the nearest direction word in its clause, or an explicit +/− sign, must agree with the change's precomputed direction:
+  - English: rose / increased / up / grew vs fell / decreased / down / dropped / declined
+  - Arabic: ارتفع / زاد / نما vs انخفض / تراجع / قل / هبط
+
+  A contradiction counts as a failed number.
+- **On failure:** the summary is regenerated once, with the list of bad numbers. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".
+- **Logged in `facts.json`** under `ai_summary`: the model, prompt version, every attempt (tokens, unmatched numbers), the verification result and a cost estimate. Prices come from `LLM_PRICE_INPUT_PER_MTOK` / `LLM_PRICE_OUTPUT_PER_MTOK` in `.env`; if they are unset, the log says "pricing not configured".
+- **Known limitation:** a wrong number can still pass if it happens to equal an unrelated fact. The direction check and the small fact set reduce this risk.
+
+**Sample:** [`docs/sample-report/2026-W45/`](docs/sample-report/2026-W45/) holds the EN and AR reports (HTML and PDF) for the last full week. These samples were generated **with the template summary**, because no `GEMINI_API_KEY` was set in `.env` (`ai_summary.source = "template"`, `status = "no_llm"` in `facts.json` / `facts.ar.json`). Rerun `p3 report --out docs/sample-report --preview` with a key to get AI summaries.
+
+| English | Arabic |
+|---|---|
+| ![EN page 1](docs/sample-report/2026-W45/preview.png) | ![AR page 1](docs/sample-report/2026-W45/preview.ar.png) |
+
+**Tests** use a fake LLM client and never need a real key. They cover:
+- format variants in both languages
+- direction contradictions in English and Arabic
+- the retry that lists the bad numbers, then the template fallback
+- no key, or an API error
+- that the template summary passes the verifier
+- the exact Arabic words `محتمل` / `ألف` / `آلاف` in the prompt and template
+- an end-to-end report whose PDF text contains the synthetic-data banner
+
 ## Design trade-offs (one line each)
 
 - **Extract fully, then load in one transaction:** no DB transaction is held open across network retries, at the
@@ -232,6 +290,11 @@ statuses, plus a `unique_combination` test.
   to download. The cost is a few window functions per allocated amount.
 - **Missing-cost profit is NULL rather than estimated:** profit is understated, never overstated, and the
   excluded revenue is printed next to every margin.
+- **The LLM sees precomputed facts, not SQL or raw rows:** the only numbers it can use are ones Python already
+  computed and tested, and the verifier can check every one of them.
+- **A template summary as the fallback, not a retry loop:** at most two LLM calls, and a report always ships.
+- **Self-contained HTML (charts and font embedded):** the file renders the same offline, in email and in the PDF.
+  The cost is a ~1.2 MB Arabic HTML file, because of the embedded font.
 - **A CLI instead of a Makefile:** fewer moving parts (`python -m p3 …`), and `make` is not required.
 
 ## Tests
