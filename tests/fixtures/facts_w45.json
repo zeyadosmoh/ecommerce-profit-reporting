@@ -584,9 +584,157 @@
   ],
   "etl_rejects_all_time": 0
  },
+ "profit_drivers": {
+  "basis": "known-cost bridge rows, this week minus previous week, signed by effect on net profit; effects sum exactly to the net profit change",
+  "net_profit_change": {
+   "abs": -1984.49,
+   "unit": "SAR",
+   "direction": "down"
+  },
+  "drivers": [
+   {
+    "rank": 1,
+    "id": "net_revenue_known_cost_ex_vat",
+    "label": "Net revenue after refunds (known cost)",
+    "this_week": 28581.09,
+    "previous_week": 36072.96,
+    "change": {
+     "abs": -7491.87,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -20.8
+    },
+    "effect_on_net_profit": -7491.87,
+    "effect": "hurt"
+   },
+   {
+    "rank": 2,
+    "id": "cogs_known_cost",
+    "label": "COGS",
+    "this_week": 14582.24,
+    "previous_week": 19190.04,
+    "change": {
+     "abs": -4607.8,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -24.0
+    },
+    "effect_on_net_profit": 4607.8,
+    "effect": "helped"
+   },
+   {
+    "rank": 3,
+    "id": "shipping_cost_known_cost_ex_vat",
+    "label": "Shipping cost",
+    "this_week": 2633.19,
+    "previous_week": 3293.81,
+    "change": {
+     "abs": -660.62,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -20.1
+    },
+    "effect_on_net_profit": 660.62,
+    "effect": "helped"
+   },
+   {
+    "rank": 4,
+    "id": "payment_fees_known_cost",
+    "label": "Payment fees",
+    "this_week": 1064.11,
+    "previous_week": 1325.63,
+    "change": {
+     "abs": -261.52,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -19.7
+    },
+    "effect_on_net_profit": 261.52,
+    "effect": "helped"
+   },
+   {
+    "rank": 5,
+    "id": "shipping_refunds_known_cost_ex_vat",
+    "label": "Shipping refunded",
+    "this_week": 43.48,
+    "previous_week": 0.0,
+    "change": {
+     "abs": 43.48,
+     "unit": "SAR",
+     "direction": "up",
+     "pct": null
+    },
+    "effect_on_net_profit": -43.48,
+    "effect": "hurt"
+   },
+   {
+    "rank": 6,
+    "id": "shipping_charged_known_cost_ex_vat",
+    "label": "Shipping charged",
+    "this_week": 1223.05,
+    "previous_week": 1202.13,
+    "change": {
+     "abs": 20.92,
+     "unit": "SAR",
+     "direction": "up",
+     "pct": 1.7
+    },
+    "effect_on_net_profit": 20.92,
+    "effect": "helped"
+   }
+  ],
+  "context": {
+   "orders": {
+    "this_week": 114,
+    "change": {
+     "abs": -18,
+     "unit": "count",
+     "direction": "down",
+     "pct": -13.6
+    }
+   },
+   "aov_ex_vat_products": {
+    "this_week": 270.79,
+    "change": {
+     "abs": -23.02,
+     "unit": "SAR",
+     "direction": "down",
+     "pct": -7.8
+    }
+   },
+   "units_sold": {
+    "this_week": 312,
+    "change": {
+     "abs": -99,
+     "unit": "count",
+     "direction": "down",
+     "pct": -24.1
+    }
+   }
+  },
+  "missing_cost_revenue_change": {
+   "abs": -70.7,
+   "unit": "SAR",
+   "direction": "down",
+   "pct": -4.1,
+   "material": false,
+   "note": "data gap (revenue excluded from profit), not a driver unless material"
+  }
+ },
  "insights": [
   {
    "rank": 1,
+   "id": "top_profit_driver",
+   "title": "Largest driver of the net profit change: Net revenue after refunds (known cost)",
+   "key_number": 7491.87,
+   "unit": "SAR",
+   "direction": "down",
+   "effect": "hurt",
+   "impact_sar": 7491.87,
+   "action_hint": "explain the profit change with this driver and the order / AOV context"
+  },
+  {
+   "rank": 2,
    "id": "net_profit_change",
    "title": "Net profit (known cost) vs previous week",
    "key_number": 1984.49,
@@ -597,7 +745,7 @@
    "action_hint": "explain the change with the bridge rows and the product movers"
   },
   {
-   "rank": 2,
+   "rank": 3,
    "id": "missing_cost",
    "title": "Revenue excluded from profit because SKUs have no cost row",
    "key_number": 1666.03,
@@ -611,7 +759,7 @@
    "action_hint": "add cost rows for these SKUs to the cost sheet"
   },
   {
-   "rank": 3,
+   "rank": 4,
    "id": "shipping_subsidy",
    "title": "Shipping cost not recovered from customers",
    "key_number": 1469.9,
@@ -623,7 +771,7 @@
    "action_hint": "review the free-shipping threshold or the flat shipping fee"
   },
   {
-   "rank": 4,
+   "rank": 5,
    "id": "margin_change",
    "title": "Net margin on known-cost lines vs previous week",
    "key_number": 2.84,
@@ -633,7 +781,7 @@
    "action_hint": "check whether the margin change comes from product mix or costs"
   },
   {
-   "rank": 5,
+   "rank": 6,
    "id": "top_profit_riser",
    "title": "Biggest product profit change vs 4-week average",
    "key_number": 545.84,
@@ -646,7 +794,7 @@
    "action_hint": "check price, stock and promotion for this SKU"
   },
   {
-   "rank": 6,
+   "rank": 7,
    "id": "top_profit_faller",
    "title": "Biggest product profit change vs 4-week average",
    "key_number": 382.44,

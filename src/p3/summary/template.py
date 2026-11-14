@@ -25,16 +25,31 @@ def template_summary(facts: dict, lang: str = "en") -> list[str]:
     return _arabic(facts) if lang == "ar" else _english(facts)
 
 
+DRIVER_LABELS_AR = {
+    "net_revenue_known_cost_ex_vat": "صافي الإيرادات بعد المرتجعات (التكلفة المعروفة)",
+    "cogs_known_cost": "تكلفة البضاعة المباعة",
+    "shipping_charged_known_cost_ex_vat": "رسوم الشحن المحصّلة",
+    "shipping_refunds_known_cost_ex_vat": "رسوم الشحن المستردة",
+    "shipping_cost_known_cost_ex_vat": "تكلفة الشحن",
+    "payment_fees_known_cost": "رسوم الدفع",
+}
+
+
+def _top_drivers(f: dict, n: int = 2) -> list[dict]:
+    return [d for d in f["profit_drivers"]["drivers"] if d["effect"] != "none"][:n]
+
+
 def _english(f: dict) -> list[str]:
     k, ship, missing, movers = f["kpis"], f["shipping"], f["missing_cost"], f["movers"]
-    rev, profit, margin = k["net_revenue"], k["net_profit"], k["net_margin_pct_known_cost"]
+    profit, margin = k["net_profit"], k["net_margin_pct_known_cost"]
+    drivers = "; ".join(
+        f"{d['label']} {_en_dir(d['change'])} SAR {abs(d['change']['abs']):,.2f}, which {d['effect']} profit"
+        for d in _top_drivers(f))
     bullets = [
-        f"Net revenue after refunds {_en_dir(rev['change'])} {_abs_pct(rev['change'])} to SAR {rev['this_week']:,.2f} "
-        f"(previous week SAR {rev['previous_week']:,.2f}); orders {_en_dir(k['orders']['change'])} "
-        f"to {k['orders']['this_week']}.",
-        f"Net profit on known-cost lines {_en_dir(profit['change'])} {_abs_pct(profit['change'])} to "
-        f"SAR {profit['this_week']:,.2f}, while net margin on known-cost lines {_en_dir(margin['change'])} "
-        f"{abs(margin['change']['abs']):.2f} percentage points to {margin['this_week']:.2f}%.",
+        f"Net profit on known-cost lines {_en_dir(profit['change'])} {_abs_pct(profit['change'])} "
+        f"(SAR {abs(profit['change']['abs']):,.2f}) to SAR {profit['this_week']:,.2f}, while net margin on known-cost "
+        f"lines {_en_dir(margin['change'])} {abs(margin['change']['abs']):.2f} percentage points to {margin['this_week']:.2f}%.",
+        f"Largest profit drivers: {drivers}. Orders {_en_dir(k['orders']['change'])} to {k['orders']['this_week']}.",
     ]
     movers_text = []
     if movers["fallers"]:
@@ -57,7 +72,8 @@ def _english(f: dict) -> list[str]:
         f"paid-shipping orders; the free-shipping threshold is a possible lever on profit.")
     if missing["lines_this_week"]:
         bullets.append(f"{missing['lines_this_week']} order lines (SAR {missing['net_revenue_this_week']:,.2f} of "
-                       f"revenue) have no cost row and are excluded from profit, not counted as zero cost.")
+                       f"revenue) are excluded from profit because they have no cost row; this is a data gap, "
+                       f"not a driver of the weekly change.")
         skus = ", ".join(s["sku"] for s in missing["skus"])
         bullets.append(f"{ACTION_LABEL['en']} add cost rows for {skus} to the cost sheet so their profit can be measured.")
     else:
@@ -67,14 +83,17 @@ def _english(f: dict) -> list[str]:
 
 def _arabic(f: dict) -> list[str]:
     k, ship, missing, movers = f["kpis"], f["shipping"], f["missing_cost"], f["movers"]
-    rev, profit, margin = k["net_revenue"], k["net_profit"], k["net_margin_pct_known_cost"]
+    profit, margin = k["net_profit"], k["net_margin_pct_known_cost"]
+    effect_ar = {"helped": "مما دعم الربح", "hurt": "مما أضر بالربح"}
+    drivers = "؛ ".join(
+        f"{_ar_dir(d['change'])} {DRIVER_LABELS_AR[d['id']]} {abs(d['change']['abs']):,.2f} ريال {effect_ar[d['effect']]}"
+        for d in _top_drivers(f))
     bullets = [
-        f"{_ar_dir(rev['change'])} صافي الإيرادات بعد المرتجعات بنسبة {_abs_pct(rev['change'])} إلى "
-        f"{_thousands_ar(rev['this_week'])} (الأسبوع السابق {_thousands_ar(rev['previous_week'])})، "
-        f"وعدد الطلبات {k['orders']['this_week']}.",
-        f"{_ar_dir(profit['change'])} صافي الربح على البنود معروفة التكلفة بنسبة {_abs_pct(profit['change'])} إلى "
-        f"{profit['this_week']:,.2f} ريال، في حين {_ar_dir(margin['change'])} هامش صافي الربح "
-        f"{abs(margin['change']['abs']):.2f} نقطة مئوية إلى {margin['this_week']:.2f}%.",
+        f"{_ar_dir(profit['change'])} صافي الربح على البنود معروفة التكلفة بنسبة {_abs_pct(profit['change'])} "
+        f"({abs(profit['change']['abs']):,.2f} ريال) إلى {_thousands_ar(profit['this_week'])}، في حين "
+        f"{_ar_dir(margin['change'])} هامش صافي الربح {abs(margin['change']['abs']):.2f} نقطة مئوية إلى "
+        f"{margin['this_week']:.2f}%.",
+        f"أكبر محركات الربح: {drivers}. وبلغ عدد الطلبات {k['orders']['this_week']}.",
     ]
     if movers["fallers"]:
         m = movers["fallers"][0]
@@ -90,7 +109,8 @@ def _arabic(f: dict) -> list[str]:
         f"الشحن المدفوع؛ حدّ الشحن المجاني سبب محتمل للضغط على الربح.")
     if missing["lines_this_week"]:
         bullets.append(f"{missing['lines_this_week']} بند طلب ({missing['net_revenue_this_week']:,.2f} ريال من "
-                       f"الإيرادات) بلا سطر تكلفة، لذلك استُبعدت من الربح ولم تُحسب تكلفتها صفراً.")
+                       f"الإيرادات) استُبعدت من الربح بسبب عدم وجود سطر تكلفة؛ هذه فجوة بيانات وليست محركاً "
+                       f"للتغير الأسبوعي.")
         skus = "، ".join(s["sku"] for s in missing["skus"])
         bullets.append(f"{ACTION_LABEL['ar']} أضف أسطر التكلفة للمنتجات {skus} إلى ورقة التكاليف لقياس ربحها.")
     else:

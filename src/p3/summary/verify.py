@@ -12,8 +12,10 @@
 5. Unit check: margin changes are percentage points (facts unit "pp"). A number written with % / percent /
    ٪ / بالمئة must match a percent fact; one written with pp / percentage points / نقطة مئوية must match a
    pp fact. Writing a pp change as % fails.
-6. Per bullet: a causal claim (helped, due to, بسبب, ساهم, ...) without a hedge (possible, may, محتمل, ربما, قد)
-   fails. The summary must also mention the top insight's key number, and the action bullet must name a SKU
+6. Per bullet: a causal claim (helped, due to, بسبب, ساهم, ...) passes only if it cites a profit driver
+   (a number matched to facts.profit_drivers with a consistent direction, and a consistent helped/hurt word
+   if one is used) or is hedged (possible, may, محتمل, ربما, قد). A definitional statement about the
+   missing-cost exclusion ("excluded because SKUs have no cost row") is not a causal claim. The summary must also mention the top insight's key number, and the action bullet must name a SKU
    from facts or a concrete lever.
 
 Known limitation: a wrong number can still pass if it happens to equal an unrelated fact.
@@ -37,7 +39,7 @@ DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 ISO_WEEK_RE = re.compile(r"\b\d{4}-W\d{2}\b")
 SKU_RE = re.compile(r"\b[A-Z]{3}-\d{3}\b")
 BULLET_RE = re.compile(r"^\s*(?:[-•*·]|\d+[.)])\s+")
-CLAUSE_SPLIT_RE = re.compile(r"[.;!?؛\n]|,\s|،|\bwhile\b|\bbut\b|\bwhereas\b|\band\b|\bwith\b|بينما|لكن|في حين|مقابل")
+CLAUSE_SPLIT_RE = re.compile(r"\.(?!\d)|[;!?؛\n]|,\s|،|\bwhile\b|\bbut\b|\bwhereas\b|\band\b|\bwith\b|بينما|لكن|في حين|مقابل")
 
 _AR_PREFIX = r"(?:[وفبل]|ال|بال|وال|و?ب?ال)?"
 DIRECTION_WORDS = {
@@ -66,6 +68,18 @@ HEDGE_RES = [
     re.compile(r"\b(?:possible|possibly|may|might|likely)\b", re.IGNORECASE),
     re.compile(rf"(?<!\w){_AR_P}(?:محتمل|محتملة|محتملاً|ربما|قد)(?!\w)"),
 ]
+# Polarity of a cause word, checked against a cited driver's effect on net profit.
+HELP_RES = [re.compile(r"\b(?:helped|helps|help|boosted|boost|supported|lifted|offset|added|thanks to)\b", re.I),
+            re.compile(rf"(?<!\w){_AR_P}(?:بفضل|دعم|دعمت|عزز|عززت|خفف|خففت)(?!\w)")]
+HURT_RES = [re.compile(r"\b(?:hurt|hurts|dragged|weighed|squeezed|eroded|cut into)\b", re.I),
+            re.compile(rf"(?<!\w){_AR_P}(?:أضر|أضرت|ضغط|ضغطت)(?!\w)|أثر سلب|أثرت سلب")]
+# "Revenue was excluded because SKUs have no cost row": a definition of the data gap, not a cause.
+EXCLUSION_RES = [re.compile(r"\bexclu\w*", re.I), re.compile(r"مستبعد|المستبعدة|استبعد|استُبعد|استبعاد")]
+COST_GAP_RES = [re.compile(r"no cost|missing[- ]cost|cost rows?|without (?:a )?cost", re.I),
+                re.compile(r"تكلفة|التكلفة|تكاليف|التكاليف")]
+DRIVER_PATH = re.compile(r"^profit_drivers\.drivers\[(\d+)\]\.")
+SKIP_KEYS = {"effect_on_net_profit"}  # same magnitude as the driver's change; matched through `change` instead
+
 # Concrete levers an action may name instead of a SKU.
 LEVERS = {
     "en": ["free-shipping threshold", "free shipping threshold", "cost sheet", "shipping fee", "shipping rate",
@@ -90,6 +104,7 @@ class NumberCheck:
     matched: str | None = None
     reason: str | None = None
     tolerance: str = "0"
+    paths: list[str] = field(default_factory=list)  # every fact the number consistently matches
 
 
 @dataclass
@@ -128,7 +143,7 @@ def flatten_facts(facts: object) -> tuple[list[Fact], set[str]]:
             own_direction = node.get("direction") if isinstance(node.get("direction"), str) else None
             for key, value in node.items():
                 child_dir = own_direction if own_direction else None
-                if isinstance(value, bool):
+                if isinstance(value, bool) or key in SKIP_KEYS:
                     continue
                 if isinstance(value, (int, float)):
                     numbers.append(Fact(Decimal(str(value)), f"{path}.{key}".lstrip("."), _kind(key, unit), child_dir))
@@ -226,7 +241,12 @@ def check_numbers(text: str, facts: dict) -> list[NumberCheck]:
         changes = [f for f in candidates if f.direction]
         tol = str(half_step)
         if consistent:
-            checks.append(NumberCheck(token, str(target), True, matched=consistent[0].path, tolerance=tol))
+            paths = [f.path for f in consistent]
+            contradiction = _effect_contradiction(masked, m.start(), paths, facts)
+            if contradiction:
+                checks.append(NumberCheck(token, str(target), False, matched=paths[0], tolerance=tol, reason=contradiction))
+            else:
+                checks.append(NumberCheck(token, str(target), True, matched=paths[0], tolerance=tol, paths=paths))
         elif levels:
             checks.append(NumberCheck(token, str(target), True, matched=levels[0].path, tolerance=tol))
         elif changes:
@@ -238,13 +258,67 @@ def check_numbers(text: str, facts: dict) -> list[NumberCheck]:
     return checks
 
 
-def unhedged_causal_claims(bullets: list[str]) -> list[str]:
-    """One problem per bullet that states a cause (helped, due to, بسبب, ...) without a hedge."""
+def _nearest_polarity(text: str, pos: int) -> str | None:
+    best: tuple[int, str] | None = None
+    for polarity, patterns in (("helped", HELP_RES), ("hurt", HURT_RES)):
+        for pattern in patterns:
+            for m in pattern.finditer(text):
+                distance = min(abs(m.start() - pos), abs(m.end() - pos))
+                if best is None or distance < best[0]:
+                    best = (distance, polarity)
+    return best[1] if best else None
+
+
+SOFT_SPLIT_RE = re.compile(r",\s|،|\band\b|\bwith\b|\bwhich\b|مما")
+
+
+def _effect_window(text: str, pos: int) -> tuple[int, int]:
+    """The number's clause plus directly attached soft clauses (", which hurt profit", "and helped", "مما دعم"),
+    stopping at a contrast (while, but, بينما, ...) or the end of a sentence."""
+    lo, hi = _clause_bounds(text, pos)
+    while hi < len(text):
+        sep = CLAUSE_SPLIT_RE.match(text, hi)
+        if not sep or not SOFT_SPLIT_RE.fullmatch(sep.group(0)):
+            break
+        _, nxt = _clause_bounds(text, sep.end())
+        if nxt <= hi:
+            break
+        hi = nxt
+    return lo, hi
+
+
+def _effect_contradiction(text: str, pos: int, paths: list[str], facts: dict) -> str | None:
+    """If the number cites profit drivers and a helped/hurt word is used, it must match a driver's effect."""
+    drivers = (facts.get("profit_drivers") or {}).get("drivers") or []
+    cited = [drivers[int(m.group(1))] for p in paths if (m := DRIVER_PATH.match(p)) and int(m.group(1)) < len(drivers)]
+    if not cited:
+        return None
+    lo, hi = _effect_window(text, pos)
+    polarity = _nearest_polarity(text[lo:hi], pos - lo)
+    if polarity and all(d["effect"] != polarity for d in cited):
+        return f"effect contradicts facts ({cited[0]['label']} {cited[0]['effect']} net profit, text says {polarity})"
+    return None
+
+
+def _is_definitional(bullet: str, start: int) -> bool:
+    lo, hi = _clause_bounds(bullet, start)
+    clause = bullet[lo:hi]
+    return any(r.search(clause) for r in EXCLUSION_RES) and any(r.search(clause) for r in COST_GAP_RES)
+
+
+def unhedged_causal_claims(bullets: list[str], checks: list[list[NumberCheck]] | None = None) -> list[str]:
+    """One problem per bullet that states a cause without citing a profit driver and without a hedge.
+    `checks[i]` are the number checks of bullet i (needed to recognise cited drivers)."""
     problems = []
-    for i, bullet in enumerate(bullets, start=1):
-        causes = [m.group(0) for r in CAUSE_RES for m in r.finditer(bullet)]
-        if causes and not any(r.search(bullet) for r in HEDGE_RES):
-            problems.append(f"bullet {i}: causal claim without a hedge ({', '.join(causes)}): {bullet}")
+    for i, bullet in enumerate(bullets):
+        causes = [m for r in CAUSE_RES for m in r.finditer(bullet) if not _is_definitional(bullet, m.start())]
+        if not causes or any(r.search(bullet) for r in HEDGE_RES):
+            continue
+        bullet_checks = checks[i] if checks else []
+        if any(c.ok and any(DRIVER_PATH.match(p) for p in c.paths) for c in bullet_checks):
+            continue  # the cause is a profit driver, cited with a consistent number and direction
+        words = ", ".join(m.group(0) for m in causes)
+        problems.append(f"bullet {i + 1}: causal claim without a cited profit driver or a hedge ({words}): {bullet}")
     return problems
 
 
@@ -273,8 +347,9 @@ def verify_summary(text: str, facts: dict, min_bullets: int = 4, max_bullets: in
     elif actions and not action_is_specific(actions[0], facts, lang):
         problems.append("the recommended action must name a SKU from facts.json or a concrete lever "
                         "(e.g. the free-shipping threshold or the cost sheet)")
-    problems += unhedged_causal_claims(bullets)
-    numbers = check_numbers("\n".join(bullets), facts)
+    per_bullet = [check_numbers(b, facts) for b in bullets]
+    numbers = [c for checks in per_bullet for c in checks]
+    problems += unhedged_causal_claims(bullets, per_bullet)
     insights = facts.get("insights") or []
     if insights and not mentions_key_number(numbers, insights[0]):
         top = insights[0]

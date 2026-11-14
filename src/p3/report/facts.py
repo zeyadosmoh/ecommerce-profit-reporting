@@ -180,8 +180,62 @@ def build_facts(conn: psycopg.Connection, week_start: date) -> dict:
     facts["shipping"] = build_shipping(conn, week_start, prev_start)
     facts["missing_cost"] = build_missing_cost(conn, week_start, week)
     facts["data_quality"] = build_data_quality(conn, week_start)
+    facts["profit_drivers"] = build_profit_drivers(facts, week, prev)
     facts["insights"] = build_insights(facts, week)
     return facts
+
+
+# Known-cost bridge rows and their sign in net profit: NP = NR - COGS + SC - SR - SCost - Fees.
+DRIVER_ROWS = [
+    ("net_revenue_known_cost_ex_vat", "Net revenue after refunds (known cost)", 1),
+    ("cogs_known_cost", "COGS", -1),
+    ("shipping_charged_known_cost_ex_vat", "Shipping charged", 1),
+    ("shipping_refunds_known_cost_ex_vat", "Shipping refunded", -1),
+    ("shipping_cost_known_cost_ex_vat", "Shipping cost", -1),
+    ("payment_fees_known_cost", "Payment fees", -1),
+]
+MATERIALITY_SHARE = Decimal("0.10")  # a data-gap change is "material" if >= 10% of the net profit change
+
+
+def build_profit_drivers(facts: dict, week: dict, prev: dict) -> dict:
+    """Week-over-week change of every known-cost bridge row, signed by its effect on net profit.
+    The effects sum exactly to the net profit (known cost) change. Ranked by absolute effect.
+
+    `change` describes the row itself (COGS fell -> direction down); `effect_on_net_profit` is the signed
+    contribution to the profit change and `effect` says whether it helped or hurt profit."""
+    drivers = []
+    for col, label, sign in DRIVER_ROWS:
+        cur, before = Decimal(week[col] or 0).quantize(CENT), Decimal(prev[col] or 0).quantize(CENT)
+        effect = (cur - before) * sign
+        drivers.append({
+            "id": col, "label": label, "this_week": float(cur), "previous_week": float(before),
+            "change": change(cur, before), "effect_on_net_profit": float(effect),
+            "effect": "helped" if effect > 0 else "hurt" if effect < 0 else "none",
+        })
+    drivers.sort(key=lambda d: (-abs(d["effect_on_net_profit"]), d["id"]))
+    for rank, d in enumerate(drivers, start=1):
+        d["rank"] = rank
+    np_change = Decimal(str(facts["kpis"]["net_profit"]["change"]["abs"]))
+    total = sum((Decimal(str(d["effect_on_net_profit"])) for d in drivers), Decimal("0"))
+    if total != np_change:
+        raise FactsError(f"profit drivers sum to {total}, net profit change is {np_change}")
+    k = facts["kpis"]
+    missing_now = Decimal(str(facts["missing_cost"]["net_revenue_this_week"]))
+    missing_prev = Decimal(prev["missing_cost_net_revenue_ex_vat"] or 0).quantize(CENT)
+    gap_change = change(missing_now, missing_prev)
+    gap_change["material"] = abs(missing_now - missing_prev) >= MATERIALITY_SHARE * abs(np_change)
+    return {
+        "basis": "known-cost bridge rows, this week minus previous week, signed by effect on net profit; "
+                 "effects sum exactly to the net profit change",
+        "net_profit_change": {"abs": float(np_change), "unit": "SAR", "direction": direction(np_change)},
+        "drivers": [{"rank": d.pop("rank"), **d} for d in drivers],
+        "context": {"orders": {"this_week": k["orders"]["this_week"], "change": k["orders"]["change"]},
+                    "aov_ex_vat_products": {"this_week": k["aov_ex_vat_products"]["this_week"],
+                                            "change": k["aov_ex_vat_products"]["change"]},
+                    "units_sold": {"this_week": k["units_sold"]["this_week"], "change": k["units_sold"]["change"]}},
+        "missing_cost_revenue_change": {**gap_change, "note": "data gap (revenue excluded from profit), not a "
+                                                              "driver unless material"},
+    }
 
 
 def build_insights(facts: dict, week: dict) -> list[dict]:
@@ -192,6 +246,14 @@ def build_insights(facts: dict, week: dict) -> list[dict]:
     Each insight has a key_number the summary must quote (or key_number_pct, its relative change)."""
     k, ship, missing, movers = facts["kpis"], facts["shipping"], facts["missing_cost"], facts["movers"]
     items: list[dict] = []
+    top = facts["profit_drivers"]["drivers"][0]
+    if top["effect"] != "none":
+        items.append({
+            "id": "top_profit_driver", "title": f"Largest driver of the net profit change: {top['label']}",
+            "key_number": abs(top["change"]["abs"]), "unit": "SAR", "direction": top["change"]["direction"],
+            "effect": top["effect"], "impact_sar": abs(top["effect_on_net_profit"]),
+            "action_hint": "explain the profit change with this driver and the order / AOV context",
+        })
     profit = k["net_profit"]
     items.append({
         "id": "net_profit_change", "title": "Net profit (known cost) vs previous week",

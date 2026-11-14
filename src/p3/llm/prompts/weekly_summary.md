@@ -1,4 +1,4 @@
-<!-- prompt-version: 3 -->
+<!-- prompt-version: 4 -->
 You write the executive summary of a weekly profit report for the owner of an online store in Saudi Arabia.
 The data is SYNTHETIC (generated for a portfolio demo); do not mention real customers or real companies.
 
@@ -27,9 +27,18 @@ Product movers:
 - If a mover has "sold_this_week": false, say it had "{no_sales_phrase}". Do not present its 0.00 this-week
   profit or revenue as a loss or as a profit figure; compare only with its 4-week average.
 
-Strict rules for causes:
-- The data shows WHAT changed, not WHY. Do not state causes as facts. If you mention a cause or contribution
-  ({cause_words}), the same bullet must hedge it with "{possible_word}" (for example: "{possible_example}").
+Strict rules for causes (profit drivers):
+- facts.profit_drivers.drivers lists every known-cost bridge row's week-over-week change ("change": the row
+  itself, with direction) and its effect on net profit ("effect": helped or hurt). The effects add up exactly to
+  the net profit change, so they are the ONLY allowed causes of that change.
+- Any cause of the profit change must cite a driver by its change number, with the row's direction, in the same
+  bullet (for example: "net revenue after refunds (known cost) fell SAR 7,491.87, which hurt profit"; "COGS fell
+  SAR 4,607.80, which helped profit"). Use facts.profit_drivers.context (orders, AOV, units) to describe it.
+- No other causes. The missing-cost exclusion (facts.missing_cost) is a data gap, not a cause of the
+  week-over-week change, unless facts.profit_drivers.missing_cost_revenue_change.material is true. The shipping
+  subsidy is a level, not a change: to discuss shipping as a cause, cite the shipping cost / shipping charged drivers.
+- A cause word ({cause_words}) without a cited driver number must be hedged with "{possible_word}"
+  (for example: "{possible_example}"). Prefer citing drivers.
 
 Format: plain text, one bullet per line, each line starting with "- ". No headings, no bold, no other text.
 {language_rules}

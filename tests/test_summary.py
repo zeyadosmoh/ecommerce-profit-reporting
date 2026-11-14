@@ -14,12 +14,14 @@ from p3.summary.template import template_summary
 FACTS = json.loads((Path(__file__).parent / "fixtures" / "facts_w45.json").read_text(encoding="utf-8"))
 
 GOOD_EN = """- Net revenue after refunds fell 20.0% to SAR 30,247.12 versus SAR 37,809.69 the previous week.
+- Net revenue after refunds on known-cost lines fell SAR 7,491.87, which hurt profit, while COGS fell SAR 4,607.80.
 - Net profit on known-cost lines fell 14.7% to SAR 11.5k, while net margin on known-cost lines rose 2.84 points to 40.17%.
 - Shipping cost exceeded shipping charged by SAR 1,469.90; free-shipping orders are a possible cause of the gap.
 - 20 order lines (SAR 1,666.03) have no cost row and are excluded from profit.
 - Recommended action: add the missing cost rows for ACC-006 and HOM-006."""
 
 GOOD_AR = """- انخفض صافي الإيرادات بعد المرتجعات بنسبة 20.0% إلى 30.2 ألف ريال.
+- انخفض صافي الإيرادات للبنود معروفة التكلفة 7,491.87 ريال مما أضر بالربح.
 - انخفض صافي الربح على البنود معروفة التكلفة بنسبة ١٤٫٧٪ إلى 11,481.12 ريال، بينما ارتفع الهامش 2.84 نقطة إلى 40.17%.
 - تجاوزت تكلفة الشحن الرسوم المحصّلة بمبلغ 1,469.90 ريال، والشحن المجاني سبب محتمل.
 - 20 بند طلب بقيمة 1,666.03 ريال بلا تكلفة ومستبعدة من الربح.
@@ -48,9 +50,9 @@ def test_good_summary_passes_first_time() -> None:
     llm = FakeLLM(GOOD_EN)
     out = generate_summary(FACTS, llm, "en")
     assert (out.source, out.status, out.notice) == ("llm", "verified", None)
-    assert len(out.bullets) == 5 and len(llm.calls) == 1
+    assert len(out.bullets) == 6 and len(llm.calls) == 1
     log = out.log
-    assert log["model"] == "fake-model-1" and log["prompt_version"] == "3"
+    assert log["model"] == "fake-model-1" and log["prompt_version"] == "4"
     assert log["attempts"][0]["passed"] and log["attempts"][0]["numbers_checked"] >= 10
     assert log["tokens"] == {"input": 1000, "output": 200}
     assert log["cost_estimate_usd"] is None and log["cost_note"] == "pricing not configured"
@@ -161,7 +163,7 @@ def test_prompt_explains_sold_this_week() -> None:
 
     en, meta = build_system_prompt("en")
     ar, _ = build_system_prompt("ar")
-    assert meta["prompt_version"] == "3"
+    assert meta["prompt_version"] == "4"
     assert '"sold_this_week": false' in en and '"no sales this week"' in en
     assert '"بلا مبيعات هذا الأسبوع"' in ar
 
@@ -171,7 +173,7 @@ def test_prompt_explains_sold_this_week() -> None:
 
 def test_facts_rank_insights_by_impact() -> None:
     ids = [i["id"] for i in FACTS["insights"]]
-    assert ids[:3] == ["net_profit_change", "missing_cost", "shipping_subsidy"]
+    assert ids[:4] == ["top_profit_driver", "net_profit_change", "missing_cost", "shipping_subsidy"]
     assert [i["rank"] for i in FACTS["insights"]] == list(range(1, len(ids) + 1))
     impacts = [i["impact_sar"] for i in FACTS["insights"]]
     assert impacts == sorted(impacts, reverse=True)
@@ -184,8 +186,8 @@ def test_unhedged_cause_triggers_retry_then_passes() -> None:
     llm = FakeLLM(causal, GOOD_EN)
     out = generate_summary(FACTS, llm, "en")
     assert out.status == "verified" and len(llm.calls) == 2
-    assert any("causal claim without a hedge" in p for p in out.log["attempts"][0]["problems"])
-    assert "causal claim without a hedge" in llm.calls[1][1]
+    assert any("causal claim without a cited profit driver or a hedge" in p for p in out.log["attempts"][0]["problems"])
+    assert "causal claim without a cited profit driver or a hedge" in llm.calls[1][1]
 
 
 def test_margin_written_as_percent_fails_both_attempts() -> None:
@@ -203,7 +205,7 @@ def test_arabic_margin_written_as_percent_fails() -> None:
 
 def test_summary_missing_top_insight_fails() -> None:
     lines = GOOD_EN.splitlines()
-    no_top = "\n".join([lines[0], lines[1].replace("fell 14.7% to SAR 11.5k", "fell to SAR 11,481.12"), *lines[2:]])
+    no_top = "\n".join([lines[0], *lines[2:]])  # drop the bullet with the top driver (7,491.87)
     out = generate_summary(FACTS, FakeLLM(no_top, no_top), "en")
     assert out.status == "failed_number_check"
     assert any("top insight" in p for p in out.log["attempts"][0]["problems"])

@@ -228,3 +228,77 @@ def test_action_must_name_a_sku_or_lever(action: str, lang: str, ok: bool) -> No
     text = "\n".join(f"- {b}" for b in ["Net profit fell 14.7%.", *BASE, action])
     v = verify_summary(text, INSIGHT_FACTS, action_label=label, lang=lang)
     assert (not any("recommended action" in p for p in v.problems)) is ok, v.problems
+
+
+# ---- v4: causes must cite a profit driver (or be hedged); missing-cost definitions are exempt ---------
+
+DRIVER_FACTS = {**FACTS, "missing_cost": {"net_revenue_this_week": 1666.03, "lines_this_week": 20},
+                "profit_drivers": {"drivers": [
+    {"rank": 1, "id": "net_revenue_known_cost_ex_vat", "label": "Net revenue after refunds (known cost)",
+     "change": {"abs": -7491.87, "unit": "SAR", "direction": "down", "pct": -20.8},
+     "effect_on_net_profit": -7491.87, "effect": "hurt"},
+    {"rank": 2, "id": "cogs_known_cost", "label": "COGS",
+     "change": {"abs": -4607.8, "unit": "SAR", "direction": "down", "pct": -24.0},
+     "effect_on_net_profit": 4607.8, "effect": "helped"},
+]}}
+
+
+def causal_problems(bullet: str) -> list[str]:
+    from p3.summary.verify import unhedged_causal_claims
+
+    return unhedged_causal_claims([bullet], [check_numbers(bullet, DRIVER_FACTS)])
+
+
+def numbers_ok(bullet: str) -> bool:
+    return all(c.ok for c in check_numbers(bullet, DRIVER_FACTS))
+
+
+@pytest.mark.parametrize("bullet", [
+    "Net profit fell 14.7% because net revenue on known-cost lines fell SAR 7,491.87.",
+    "Net profit fell 14.7%, driven by net revenue on known-cost lines, which fell SAR 7.5k.",
+    "Lower COGS of SAR 4,607.80 helped profit.",
+    "COGS fell SAR 4,607.80, which helped profit.",
+    "انخفض صافي الربح بسبب انخفاض صافي الإيرادات 7,491.87 ريال.",
+    "ساهم انخفاض تكلفة البضاعة المباعة 4,607.80 ريال في دعم الربح.",
+])
+def test_cause_citing_a_driver_passes_without_hedge(bullet: str) -> None:
+    assert causal_problems(bullet) == [] and numbers_ok(bullet), check_numbers(bullet, DRIVER_FACTS)
+
+
+@pytest.mark.parametrize("bullet,expected", [
+    ("Net profit fell because net revenue on known-cost lines rose SAR 7,491.87.", "direction contradicts"),
+    ("COGS fell SAR 4,607.80, which hurt profit.", "effect contradicts"),
+    ("انخفض صافي الربح بسبب ارتفاع صافي الإيرادات 7,491.87 ريال.", "direction contradicts"),
+])
+def test_cause_citing_a_driver_with_wrong_direction_or_effect_fails(bullet: str, expected: str) -> None:
+    checks = check_numbers(bullet, DRIVER_FACTS)
+    assert any(not c.ok and expected in (c.reason or "") for c in checks), [(c.text, c.reason) for c in checks]
+
+
+@pytest.mark.parametrize("bullet,ok", [
+    ("Net profit fell 14.7% due to the shipping subsidy of SAR 1,469.90.", False),
+    ("Net profit fell 14.7% because of missing costs of SAR 1,666.03.", False),
+    ("Net profit fell 14.7%, possibly due to the shipping subsidy of SAR 1,469.90.", True),
+    ("انخفض صافي الربح 14.7% بسبب دعم الشحن 1,469.90 ريال.", False),
+    ("انخفض صافي الربح 14.7% ربما بسبب دعم الشحن 1,469.90 ريال.", True),
+])
+def test_cause_without_driver_needs_a_hedge(bullet: str, ok: bool) -> None:
+    assert (causal_problems(bullet) == []) is ok
+
+
+@pytest.mark.parametrize("bullet", [
+    "SAR 1,666.03 of revenue was excluded from profit because SKUs had no cost row.",
+    "20 order lines are excluded from profit due to missing cost rows.",
+    "بلغت الإيرادات المستبعدة من الأرباح بسبب نقص صفوف التكاليف 1,666.03 ريال عبر 20 خطاً.",  # Gemini's v3 attempt 1
+    "استُبعدت 1,666.03 ريال من الربح بسبب عدم وجود سطر تكلفة.",
+])
+def test_missing_cost_definition_is_not_a_causal_claim(bullet: str) -> None:
+    assert causal_problems(bullet) == []
+
+
+@pytest.mark.parametrize("text,ok", [
+    ("Net profit 1,984.49 SAR fell this week.", True),
+    ("Net profit 1,984.49 SAR rose this week.", False),  # regression: "." inside a number is not a sentence end
+])
+def test_direction_word_after_a_decimal_number(text: str, ok: bool) -> None:
+    assert all(c.ok for c in check_numbers(text, FACTS)) is ok

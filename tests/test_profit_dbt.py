@@ -315,3 +315,18 @@ def test_printed_bridge_adds_up_for_every_week(built: psycopg.Connection) -> Non
         # the profit bridge starts from the number the revenue block ends with
         known = [ln for ln in text.splitlines() if "Net revenue after refunds (known cost)" in ln]
         assert len(known) == 2 and known[0][4:] == known[1][4:]
+
+
+def test_profit_drivers_sum_to_net_profit_change_for_every_week(built: psycopg.Connection) -> None:
+    from p3.report.facts import build_facts
+
+    weeks = [r[0] for r in built.execute("SELECT week_start FROM marts.agg_weekly_kpis WHERE is_full_week ORDER BY 1")]
+    assert len(weeks) == 26
+    for week in weeks[1:]:  # each week needs a previous week
+        pd = build_facts(built, week)["profit_drivers"]
+        effects = [D(str(d["effect_on_net_profit"])) for d in pd["drivers"]]
+        assert sum(effects, D("0")) == D(str(pd["net_profit_change"]["abs"])), week
+        for d in pd["drivers"]:  # sign: revenue / shipping charged add, costs subtract
+            sign = 1 if d["id"] in ("net_revenue_known_cost_ex_vat", "shipping_charged_known_cost_ex_vat") else -1
+            assert D(str(d["effect_on_net_profit"])) == sign * D(str(d["change"]["abs"])), (week, d["id"])
+        assert [abs(e) for e in effects] == sorted((abs(e) for e in effects), reverse=True)

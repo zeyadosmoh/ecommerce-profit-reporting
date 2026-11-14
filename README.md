@@ -227,6 +227,9 @@ statuses, plus a `unique_combination` test.
   - product movers: net profit (known cost) vs the previous 4-week average, top 3 each way, with the revenue change on the same row
   - the shipping subsidy
   - the missing-cost warning
+  - `profit_drivers`: the week-over-week change of each known-cost bridge row (net revenue, COGS, shipping
+    charged / refunded, shipping cost, payment fees), signed by its effect on net profit. The effects sum
+    exactly to the net profit change (tested for all weeks). Orders, AOV and units are included as context.
   - a ranked `insights` list: net profit change, missing-cost revenue, shipping subsidy, margin change (pp) and the
     top product movers, ranked by estimated SAR impact. Each has a `key_number` and an `action_hint`.
   - data-quality counts
@@ -251,9 +254,11 @@ statuses, plus a `unique_combination` test.
   A contradiction counts as a failed number.
 - **Units:** every change carries a unit (`SAR`, `count` or `pp`). Margin changes are percentage points, so a
   pp fact written as `%` / percent / `٪` / بالمئة fails, and so does a percent written as pp / نقطة مئوية.
-- **Causes:** a bullet with a cause word (helped, hurt, due to, because, driven by, caused, led to, thanks to,
+- **Causes:** a cause of the profit change must cite a profit driver by its number, with a consistent
+  direction and a consistent helped/hurt word. Missing-cost exclusion is a data gap, not a cause, unless its change
+  is material. Otherwise, a bullet with a cause word (helped, hurt, due to, because, driven by, caused, led to, thanks to,
   resulted in; بسبب، نتيجة، أدى، ساهم، بفضل، أثر، أسهم) and no hedge (possible, possibly, may, might, likely;
-  محتمل، ربما، قد) fails.
+  محتمل، ربما، قد) fails. A definition such as "excluded from profit because the SKU has no cost row" is exempt.
 - **Substance:** the summary must quote the top insight's key number (or its % change), and the recommended
   action must name a SKU from the facts or a concrete lever (free-shipping threshold, shipping fee, cost sheet, ...).
 - **On failure:** the summary is regenerated once, with the list of bad numbers and problems. If it fails again, the template summary is used and the report shows "AI summary unavailable: failed number check".
