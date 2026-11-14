@@ -1,0 +1,32 @@
+name: p3_profit
+version: "1.0.0"
+config-version: 2
+profile: p3_profit
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "logs"]
+
+vars:
+  store_timezone: "Asia/Riyadh"                                # order/refund dates and ISO weeks are store-local
+  revenue_statuses: ["completed", "processing", "refunded"]    # everything else is excluded (see dq_issues)
+  refund_week_basis: "refund_date"                             # or "order_date"
+
+models:
+  p3_profit:
+    +docs:
+      node_color: "#2f6f5e"
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+data_tests:
+  p3_profit:
+    +severity: error

@@ -83,6 +83,12 @@ def cmd_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dbt(args: argparse.Namespace) -> int:
+    from p3.dbt_runner import run_dbt
+
+    return run_dbt(args.dbt_args, get_settings(), target=args.target).returncode
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="p3", description="E-commerce profit reporting (synthetic data)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -109,6 +115,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("summary", help="row counts, rejects, recent runs and reproduce commands")
     p.set_defaults(func=cmd_summary)
+
+    p = sub.add_parser("dbt", help="run project-local dbt with credentials from .env, e.g. `p3 dbt build`")
+    p.add_argument("--target", default="dev", choices=["dev", "test"])
+    p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")
+    p.set_defaults(func=cmd_dbt)
 
     return parser
 

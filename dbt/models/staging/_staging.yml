@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: stg_products
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: sku
+        data_tests: [unique, not_null]
+  - name: stg_orders
+    description: One row per order; amounts ex-VAT unless suffixed incl_vat. order_date / order_week are store-local.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: order_status
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [pending, processing, on-hold, completed, cancelled, refunded, failed, draft, checkout-draft]
+      - name: currency
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [SAR]
+      - name: order_date
+        data_tests: [not_null]
+  - name: stg_order_lines
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: line_id
+        data_tests: [unique, not_null]
+      - name: sku
+        data_tests: [not_null]
+      - name: quantity
+        data_tests: [not_null]
+  - name: stg_refunds
+    columns:
+      - name: refund_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests: [not_null]
+  - name: stg_refund_lines
+    columns:
+      - name: refund_item_id
+        data_tests: [unique, not_null]
+      - name: line_id
+        data_tests: [not_null]
+      - name: refund_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_refunds')
+                field: refund_id
+  - name: stg_costs
+    columns:
+      - name: sku
+        data_tests: [not_null]
+      - name: effective_from
+        data_tests: [not_null]
+  - name: stg_etl_rejects
+    columns:
+      - name: reject_id
+        data_tests: [unique, not_null]

@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Landing tables written by `python -m p3 ingest` (SYNTHETIC data).
+    tables:
+      - name: raw_products
+      - name: raw_orders
+      - name: raw_order_lines
+      - name: raw_refunds
+      - name: raw_costs
+      - name: etl_rejects
