@@ -3,6 +3,7 @@
 The LLM receives only `llm_view(facts)`: aggregated weekly numbers, never order-level or personal data.
 """
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -35,7 +36,8 @@ def build_system_prompt(lang: str) -> tuple[str, dict]:
     text = prompt.text.format(bullet_min=MIN_BULLETS, bullet_max=MAX_BULLETS, language_name=LANGUAGES[lang],
                               action_label=ACTION_LABEL[lang], possible_word=POSSIBLE_WORD[lang],
                               possible_example=POSSIBLE_EXAMPLE[lang], language_rules=language_rules)
-    return text, {"prompt_version": prompt.version, "prompt_sha256": prompt.sha256}
+    # Hash the exact system prompt sent (base prompt + language rules), so EN and AR are distinguishable.
+    return text, {"prompt_version": prompt.version, "prompt_sha256": hashlib.sha256(text.encode()).hexdigest()[:12]}
 
 
 def build_user_message(facts: dict, previous: str | None = None, verification: Verification | None = None) -> str:

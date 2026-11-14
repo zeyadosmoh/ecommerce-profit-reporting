@@ -554,7 +554,7 @@
   "provider": null,
   "model": null,
   "prompt_version": "1",
-  "prompt_sha256": "f1dfc68f5489",
+  "prompt_sha256": "3502a10775eb",
   "attempts": [],
   "source": "template",
   "status": "no_llm",
@@ -583,7 +583,7 @@
  },
  "report": {
   "language": "ar",
-  "generated_at": "2026-11-14T01:51:57+00:00",
+  "generated_at": "2026-11-14T01:53:56+00:00",
   "files": [
    "report.ar.html",
    "report.ar.pdf",
