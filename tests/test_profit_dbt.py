@@ -19,33 +19,13 @@ import psycopg
 import pytest
 
 from p3.config import Settings
-from p3.db.connection import apply_schema, drop_schema
 from p3.dbt_runner import run_dbt
-from p3.generate import costs_csv, generate_dataset
-from p3.generate.store import StoreConfig
-from p3.ingest.pipeline import run_ingest
-from p3.mock_api.store import MockStore
-from tests.conftest import make_app, make_client
 
 pytestmark = pytest.mark.dbt
 
 D = Decimal
 REVENUE_STATUSES = {"completed", "processing", "refunded"}
 STORE_TZ = ZoneInfo("Asia/Riyadh")
-
-
-@pytest.fixture(scope="module")
-def built(settings: Settings, dsn: str, tmp_path_factory: pytest.TempPathFactory) -> psycopg.Connection:
-    ds = generate_dataset(StoreConfig(seed=42))
-    cost_file = tmp_path_factory.mktemp("costs") / "costs.csv"
-    cost_file.write_text(costs_csv(ds.costs))
-    with psycopg.connect(dsn, autocommit=True) as conn:
-        drop_schema(conn)
-        apply_schema(conn)
-        run_ingest(dsn, make_client(make_app(MockStore(ds.products, ds.orders, ds.refunds))), str(cost_file))
-        result = run_dbt(["build", "--fail-fast"], settings, target="test", quiet=True)
-        assert result.returncode == 0, f"dbt build failed:\n{result.stdout[-6000:]}"
-        yield conn
 
 
 # --------------------------------------------------------------------------------------------------

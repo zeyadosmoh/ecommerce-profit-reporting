@@ -85,3 +85,21 @@ def ingest(db: psycopg.Connection, dsn: str, cost_file: Path) -> Callable[..., R
 
 def count(conn: psycopg.Connection, table: str) -> int:
     return conn.execute(f"SELECT count(*) FROM raw.{table}").fetchone()[0]
+
+
+@pytest.fixture(scope="module")
+def built(settings: Settings, dsn: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[psycopg.Connection]:
+    """Seed-42 dataset ingested into p3_test, then `dbt build --target test` (all models + dbt tests).
+    Module-scoped: other test modules reset the raw schema, so each dbt module rebuilds."""
+    from p3.dbt_runner import run_dbt
+
+    ds = generate_dataset(StoreConfig(seed=42))
+    cost_file = tmp_path_factory.mktemp("costs") / "costs.csv"
+    cost_file.write_text(costs_csv(ds.costs))
+    with psycopg.connect(dsn, autocommit=True) as conn:
+        drop_schema(conn)
+        apply_schema(conn)
+        run_ingest(dsn, make_client(make_app(MockStore(ds.products, ds.orders, ds.refunds))), str(cost_file))
+        result = run_dbt(["build", "--fail-fast"], settings, target="test", quiet=True)
+        assert result.returncode == 0, f"dbt build failed:\n{result.stdout[-6000:]}"
+        yield conn
