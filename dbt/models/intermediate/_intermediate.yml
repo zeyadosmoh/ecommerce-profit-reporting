@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: int_line_costs
+    description: Effective-dated landed cost per order line (latest effective_from <= order date).
+    columns:
+      - name: line_id
+        data_tests: [unique, not_null]
+      - name: cost_missing
+        data_tests: [not_null]
+  - name: int_order_allocations
+    description: Shipping charged / shipping cost / payment fee allocated to lines (largest remainder, exact).
+    columns:
+      - name: line_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_order_lines')
+                field: line_id
+  - name: int_line_refunds
+    description: One row per refund x order line; refunded units, revenue, allocated shipping, COGS reversal.
+    columns:
+      - name: refund_id
+        data_tests: [not_null]
+      - name: line_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_order_lines')
+                field: line_id
+  - name: int_profit_ledger
+    description: Sale and refund events per line, dated into ISO weeks; the source of every weekly mart.
+    columns:
+      - name: event_type
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [sale, refund]
+      - name: event_week
+        data_tests: [not_null]
