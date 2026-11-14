@@ -20,5 +20,40 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # Weekly schedule (Phase 4). Calls the P3 runner on the host (python -m p3 runner, 127.0.0.1:8770)
+  # through host.docker.internal. Workflow: n8n/workflows/weekly_report.json (no credentials inside).
+  n8n:
+    image: n8nio/n8n:2.47.2
+    container_name: p3-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5679:5678"   # 5678 is used by the invoice-extraction project
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      GENERIC_TIMEZONE: Asia/Riyadh
+      TZ: Asia/Riyadh
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "500"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - p3_n8n_data:/home/node/.n8n
+
+  # Local SMTP sink: every email the workflow sends lands here (UI on 127.0.0.1:8025). Nothing leaves the machine.
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    container_name: p3-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # web UI + API
+    environment:
+      MP_MAX_MESSAGES: "500"
+
 volumes:
   p3_profit_pgdata:
+  p3_n8n_data:
