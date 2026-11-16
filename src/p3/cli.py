@@ -105,9 +105,15 @@ def cmd_profit_summary(args: argparse.Namespace) -> int:
 
 
 def cmd_report(args: argparse.Namespace) -> int:
-    from p3.report.build import build_report
+    from p3.report.build import build_report, render_from_facts
     from p3.report.facts import FactsError
 
+    if args.from_facts:
+        files = render_from_facts(args.from_facts, args.format, args.preview, args.lang)
+        print(SYNTHETIC_NOTICE)
+        print(f"Re-rendered from {args.from_facts} (no DB, no AI call): " + ", ".join(
+            p.name for p in files.written if p != files.facts))
+        return 0
     settings = get_settings()
     with connect(settings) as conn:
         try:
@@ -201,6 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--preview", action="store_true", help="also write a PNG preview of page 1")
     p.add_argument("--format", type=parse_formats, default=("pdf",), metavar="pdf|pptx|pdf,pptx",
                    help="outputs next to facts.json (default pdf; pptx = editable PowerPoint, AR is right-to-left)")
+    p.add_argument("--from-facts", type=Path, default=None, metavar="FACTS_JSON",
+                   help="re-render the outputs next to an existing facts.json (no DB, no AI call; facts unchanged)")
     p.set_defaults(func=cmd_report)
 
     p = sub.add_parser("deck", help="build report.pptx / report.ar.pptx from an existing facts.json (no DB, no AI)")

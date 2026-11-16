@@ -25,7 +25,7 @@ class ReportFiles:
     html: Path | None
     pdf: Path | None
     preview: Path | None
-    summary: SummaryOutcome
+    summary: SummaryOutcome | None  # None when re-rendered from an existing facts.json
     pptx: Path | None = None
 
     @property
@@ -55,29 +55,57 @@ def build_report(conn: psycopg.Connection, settings: Settings, week: date | None
         client, reason = None, "AI disabled with --no-ai"
     outcome = generate_summary(facts, client, lang, no_client_reason=reason, prices=prices(settings))
 
-    t = STRINGS[lang]
-    if outcome.source == "llm":
-        label = f"{t['summary_ai']} · {outcome.log.get('provider')} {outcome.log.get('model')}"
-    else:
-        label = t["summary_template"] + (f" · {outcome.log.get('reason')}" if outcome.log.get("reason") else "")
     directory, facts_path, html_path, pdf_path = report_paths(out_dir or settings.reports_dir, facts["week"]["iso_week"], lang)
-    pptx_path = pdf_path.with_suffix(".pptx")
-    directory.mkdir(parents=True, exist_ok=True)
-    preview_path = directory / f"preview{'' if lang == 'en' else '.' + lang}.png" if preview and "pdf" in formats else None
-    if "pdf" in formats:
-        html = render_html(facts, SummaryView(outcome.bullets, label, outcome.notice), lang)
-        html_path.write_text(html, encoding="utf-8")
-        write_pdf(html, pdf_path, preview_path)
-    else:
-        html_path = pdf_path = None
-    files = [p.name for p in (html_path, pdf_path, pptx_path if "pptx" in formats else None, preview_path) if p]
+    names = [p.name for p in (html_path, pdf_path) if "pdf" in formats]
+    names += [pdf_path.with_suffix(".pptx").name] if "pptx" in formats else []
+    names += [_preview_path(directory, lang).name] if preview and "pdf" in formats else []
     facts_out = {**facts,
                  "ai_summary": {**outcome.log, "bullets": outcome.bullets, "notice": outcome.notice},
                  "report": {"language": lang, "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-                            "files": files}}
-    if "pptx" in formats:
-        write_deck(facts_out, pptx_path, lang)  # built only from the facts written next to it
-    else:
-        pptx_path = None
+                            "files": names}}
+    html, pdf, pptx, png = write_outputs(facts_out, directory, lang, formats, preview)
     facts_path.write_text(json.dumps(facts_out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    return ReportFiles(directory, facts_path, html_path, pdf_path, preview_path, outcome, pptx_path)
+    return ReportFiles(directory, facts_path, html, pdf, png, outcome, pptx)
+
+
+def summary_label(ai: dict, lang: str) -> str:
+    """The PDF's summary source line, from facts.json's ai_summary."""
+    t = STRINGS[lang]
+    if ai.get("source") == "llm":
+        return f"{t['summary_ai']} · {ai.get('provider')} {ai.get('model')}"
+    return t["summary_template"] + (f" · {ai['reason']}" if ai.get("reason") else "")
+
+
+def _preview_path(directory: Path, lang: str) -> Path:
+    return directory / f"preview{'' if lang == 'en' else '.' + lang}.png"
+
+
+def write_outputs(facts_out: dict, directory: Path, lang: str, formats: str | tuple[str, ...] = ("pdf",),
+                  preview: bool = False) -> tuple[Path | None, Path | None, Path | None, Path | None]:
+    """Render report.html/.pdf and/or report.pptx from a finished facts dict (no DB, no AI call)."""
+    formats = parse_formats(formats)
+    _, _, html_path, pdf_path = report_paths(directory.parent, directory.name, lang)
+    directory.mkdir(parents=True, exist_ok=True)
+    html_out = pdf_out = pptx_out = png_out = None
+    if "pdf" in formats:
+        ai = facts_out.get("ai_summary") or {}
+        html = render_html(facts_out, SummaryView(list(ai.get("bullets") or []), summary_label(ai, lang),
+                                                  ai.get("notice")), lang)
+        html_path.write_text(html, encoding="utf-8")
+        png_out = _preview_path(directory, lang) if preview else None
+        write_pdf(html, pdf_path, png_out)
+        html_out, pdf_out = html_path, pdf_path
+    if "pptx" in formats:
+        pptx_out = write_deck(facts_out, pdf_path.with_suffix(".pptx"), lang)
+    return html_out, pdf_out, pptx_out, png_out
+
+
+def render_from_facts(facts_path: Path, formats: str | tuple[str, ...] = ("pdf",), preview: bool = False,
+                      lang: str | None = None) -> ReportFiles:
+    """Re-render the outputs next to an existing facts.json; facts.json itself is not rewritten."""
+    facts_out = json.loads(facts_path.read_text(encoding="utf-8"))
+    lang = lang or (facts_out.get("report") or {}).get("language") or (facts_out.get("ai_summary") or {}).get("language") or "en"
+    if lang not in STRINGS:
+        raise ValueError(f"unsupported language {lang!r}; expected en or ar")
+    html, pdf, pptx, png = write_outputs(facts_out, facts_path.parent, lang, formats, preview)
+    return ReportFiles(facts_path.parent, facts_path, html, pdf, png, None, pptx)

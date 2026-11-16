@@ -47,6 +47,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "dq": "Data quality",
         "dq_none": "No data-quality issues this week.",
         "dq_rejects": "ETL rejects (all time): {n}",
+        "dq_issue": "Issue",
+        "dq_count": "Count",
+        "dq_amount": "Amount (SAR, by order week)",
+        "dq_basis": "Amounts count by order week: for lines with missing cost, the net revenue of lines sold this week "
+                    "after their refunds. The missing-cost revenue excluded from profit follows the profit bridge "
+                    "instead: this week's sales minus refunds paid this week, including refunds of earlier orders.",
         "footer": "Revenue and costs are ex-VAT (Saudi VAT 15%). Weeks are ISO, Monday–Sunday, store time. "
                   "Profit covers lines with a known cost only.",
     },
@@ -95,6 +101,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "dq": "جودة البيانات",
         "dq_none": "لا توجد مشكلات في جودة البيانات هذا الأسبوع.",
         "dq_rejects": "سجلات مرفوضة في التحميل (منذ البداية): {n}",
+        "dq_issue": "المشكلة",
+        "dq_count": "العدد",
+        "dq_amount": "المبلغ (ريال، حسب أسبوع الطلب)",
+        "dq_basis": "تُحسب المبالغ حسب أسبوع الطلب: للبنود بلا تكلفة، صافي إيرادات البنود المبيعة هذا الأسبوع بعد "
+                    "مرتجعاتها. أما الإيرادات المستبعدة من الربح فتتبع جسر الأرباح: مبيعات هذا الأسبوع ناقص "
+                    "المرتجعات المدفوعة هذا الأسبوع، بما فيها مرتجعات طلبات سابقة.",
         "footer": "الإيرادات والتكاليف بدون ضريبة القيمة المضافة (15%). الأسابيع حسب ISO من الاثنين إلى الأحد "
                   "بتوقيت المتجر. الربح يشمل البنود معروفة التكلفة فقط.",
     },
