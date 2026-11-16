@@ -33,7 +33,7 @@ editable [EN PowerPoint](docs/sample-report/2026-W45/report.pptx) · [AR PowerPo
   its direction (rose/fell, ارتفع/انخفض), its unit (%, percentage points, SAR, counts), and that every stated cause
   cites a real profit driver. It also checks that the top insight is covered and that the action names a SKU or
   lever. Failures trigger one retry, then a deterministic template. Both samples above passed on the first attempt.
-- **Tested end to end.** 254 pytest tests and 68 dbt data tests on 17 models, including:
+- **Tested end to end.** 264 pytest tests and 68 dbt data tests on 17 models, including:
   - idempotent incremental ingestion
   - a failed run leaving no partial rows
   - English and Arabic verifier cases
@@ -353,7 +353,8 @@ statuses, plus a `unique_combination` test.
 ```bash
 .venv/bin/python -m p3 report --format pdf,pptx           # adds reports/2026-W45/report.pptx (default: pdf only)
 .venv/bin/python -m p3 report --lang ar --format pptx     # facts.ar.json + report.ar.pptx, right-to-left
-.venv/bin/python -m p3 deck --facts reports/2026-W45/facts.json   # rebuild a deck from facts.json: no DB, no AI call
+.venv/bin/python -m p3 report --from-facts reports/2026-W45/facts.ar.json --format pdf,pptx
+                                             # re-render next to an existing facts.json: no DB, no AI call
 ```
 
 - **Built only from `facts.json`:** the deck reads the finished facts, including the verified AI summary (or the
@@ -363,16 +364,22 @@ statuses, plus a `unique_combination` test.
   with change and direction; the summary bullets; the profit bridge as tables; the three 8-week charts (the same
   matplotlib PNGs as the PDF, the only pictures); top/bottom product movers; missing cost and data quality. Same
   colors as the PDF. **Every slide has a "Synthetic data" footer**, so a single forwarded slide is still labelled.
-- **Arabic:** every paragraph has `rtl="1"` and is right-aligned, table columns are mirrored (labels on the right),
-  and runs use Arial for Latin and complex script (it ships with Windows and macOS and has Arabic glyphs). Digits stay
-  Western as in the PDF. Numbers, dates, ISO weeks and SKUs are wrapped in invisible left-to-right embedding marks
-  so `-7,562.57 (-20.0%)` and `2026-W45` keep their order inside right-to-left text. The verifier strips those marks
-  before matching.
+- **Arabic:** a paragraph's direction follows its content: with Arabic letters it is `rtl="1"`, without (KPI values,
+  change lines, SKU and product names, week ids, dates) it is `rtl="0"`; both are right-aligned. PowerPoint ignores
+  Unicode bidi control marks, so the deck uses none. Mixed lines are split instead: the week id has its own box in the
+  footer, "SKU — product" and dates are their own LTR paragraphs, and Arabic sentences keep only plain numbers (with
+  the Arabic comma "،"). Table columns are mirrored (labels on the right), and runs use Arial for Latin and complex
+  script (it ships with Windows and macOS and has Arabic glyphs). Digits stay Western as in the PDF. The AI bullets
+  are shown exactly as verified, so an SKU inside an Arabic AI sentence is left as the model wrote it.
+- **Two missing-cost amounts, both labelled:** the warning box shows the revenue excluded from profit on the bridge
+  basis (this week's sales minus refunds paid this week, SAR 1,666.03 for W45). The data-quality table counts by
+  order week (the 20 lines sold this week after their refunds, SAR 1,717.33). The difference is a refund paid this
+  week on a missing-cost line sold earlier. The PDF and the deck label the column and explain the basis.
 - **Email:** the runner attaches `report.pptx` next to the PDF when `REPORT_ATTACH_PPTX=true` (the default).
 
 **Sample:** [report.pptx](docs/sample-report/2026-W45/report.pptx) · [report.ar.pptx](docs/sample-report/2026-W45/report.ar.pptx), built with
-`p3 deck` from the committed `facts.json` / `facts.ar.json`, so they carry exactly the Gemini bullets in the sample
-PDFs. The previews below are LibreOffice renders from a local Docker image (`docker build -t p3-deck-preview
+`p3 report --from-facts … --format pdf,pptx` from the committed `facts.json` / `facts.ar.json`, so they carry
+exactly the Gemini bullets in the sample PDFs (which were re-rendered the same way). The previews below are LibreOffice renders from a local Docker image (`docker build -t p3-deck-preview
 docker/deck-preview`, then `python scripts/render_deck_previews.py docs/sample-report/2026-W45`). Nothing is
 installed on the host. PowerPoint can wrap lines slightly differently.
 

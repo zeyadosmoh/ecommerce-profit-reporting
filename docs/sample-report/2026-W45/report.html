@@ -232,11 +232,13 @@ footer { margin-top:14px; color:var(--muted); font-size:9px; border-top:1px soli
 
 <h2>Data quality</h2>
 
-<table class="avoid-break">
+<table class="avoid-break"><tr><th>Issue</th><th class="r">Count</th><th class="r">Amount (SAR, by order week)</th></tr>
+
   <tr><td>Orders excluded by status</td><td class="r num">1</td><td class="r num">367.82</td></tr>
 
   <tr><td>Lines with missing cost</td><td class="r num">20</td><td class="r num">1,717.33</td></tr>
 </table>
+<div class="note">Amounts count by order week: for lines with missing cost, the net revenue of lines sold this week after their refunds. The missing-cost revenue excluded from profit follows the profit bridge instead: this week&#39;s sales minus refunds paid this week, including refunds of earlier orders.</div>
 
 <div class="note">ETL rejects (all time): 0</div>
 
