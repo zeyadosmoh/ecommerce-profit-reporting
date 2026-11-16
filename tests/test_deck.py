@@ -39,9 +39,21 @@ def facts_for(src: str, lang: str) -> dict:
     return template_facts(lang) if src == "template" else sample_facts(lang)
 
 
+LRM = "\u200e"
+
+
+def raw_text(p) -> str:
+    return "".join(t.text or "" for t in p.iter(qn("a:t")))
+
+
+def para_text(p) -> str:
+    """Paragraph text without the U+200E marks that bracket LTR-only paragraphs in the Arabic deck."""
+    return raw_text(p).strip(LRM)
+
+
 def paragraphs(slide) -> list[str]:
     """Every paragraph's text on a slide, text boxes and table cells alike."""
-    return ["".join(t.text or "" for t in p.iter(qn("a:t"))) for p in slide._element.iter(qn("a:p"))]
+    return [para_text(p) for p in slide._element.iter(qn("a:p"))]
 
 
 def slide_text(slide) -> str:
@@ -91,12 +103,8 @@ def test_synthetic_banner_on_title_and_footer_on_every_slide(src: str, lang: str
     assert props.author == props.last_modified_by == "P3 profit reporting (synthetic data)"  # no template leftovers
 
 
-def para_text(p) -> str:
-    return "".join(t.text or "" for t in p.iter(qn("a:t")))
-
-
 ARABIC = re.compile("[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff]")
-BIDI_CONTROLS = re.compile("[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
+EMBEDDING_CONTROLS = re.compile("[\u200f\u202a-\u202e\u2066-\u2069]")  # RLM, embeddings/overrides, isolates
 
 
 @pytest.mark.parametrize("src", ["template", "sample"])
@@ -118,11 +126,22 @@ def test_arabic_paragraph_direction_follows_content(src: str) -> None:
 
 
 @pytest.mark.parametrize(("src", "lang"), CASES)
-def test_no_bidi_control_characters_in_deck_text(src: str, lang: str) -> None:
-    # PowerPoint ignores LRE/PDF/LRM here, so the deck must not rely on them
+def test_bidi_marks_only_lrm_at_both_ends_of_ltr_only_arabic_paragraphs(src: str, lang: str) -> None:
+    # PowerPoint ignores embedding controls, so none are used. U+200E (a strong LTR character) brackets every
+    # LTR-only paragraph of the Arabic deck and appears nowhere else; the English deck has none.
+    checked = 0
     for slide in build_deck(facts_for(src, lang), lang).slides:
-        for text in paragraphs(slide):
-            assert not BIDI_CONTROLS.search(text), repr(text)
+        for p in slide._element.iter(qn("a:p")):
+            raw = raw_text(p)
+            assert not EMBEDDING_CONTROLS.search(raw), repr(raw)
+            inner = raw.strip(LRM)
+            assert LRM not in inner, repr(raw)
+            if lang == "ar" and inner.strip() and not ARABIC.search(inner):
+                assert raw.startswith(LRM) and raw.endswith(LRM) and raw != LRM, repr(raw)
+                checked += 1
+            else:
+                assert LRM not in raw, repr(raw)
+    assert checked > 60 if lang == "ar" else checked == 0
 
 
 def test_arabic_mixed_tokens_never_share_a_paragraph_with_arabic_text() -> None:
@@ -148,21 +167,26 @@ def test_arabic_sku_lines_are_ltr_and_descriptions_rtl_with_arabic_comma() -> No
         i = texts.index(f"{sku['sku']} — {sku['product']}")
         pPr = paras[i].find(qn("a:pPr"))
         assert pPr.get("rtl") == "0" and pPr.get("algn") == "r"
-        desc = texts[i + 1]
+        assert {r.get("lang") for r in paras[i].iter(qn("a:rPr"))} == {"en-US"}
+        desc = texts[i + 1]  # the count and the date stay on the Arabic line
         assert paras[i + 1].find(qn("a:pPr")).get("rtl") == "1"
-        assert desc == f"{sku['lines_to_date']} {STRINGS['ar']['lines_to_date']}، {STRINGS['ar']['since']}:"
-        assert texts[i + 2] == sku["first_sale"] and paras[i + 2].find(qn("a:pPr")).get("rtl") == "0"  # date on its own
+        assert desc == (f"{sku['lines_to_date']} {STRINGS['ar']['lines_to_date']}، {STRINGS['ar']['since']} "
+                        f"{sku['first_sale']}")
+        assert "بندًا" in desc
 
 
 def test_arabic_kpi_values_and_footer_week_are_right_aligned_ltr() -> None:
     facts = template_facts("ar")
     prs = build_deck(facts, "ar")
     ltr_right = {para_text(p) for s in prs.slides for p in s._element.iter(qn("a:p"))
-                 if p.find(qn("a:pPr")).get("rtl") == "0" and p.find(qn("a:pPr")).get("algn") == "r"}
+                 if p.find(qn("a:pPr")).get("rtl") == "0" and p.find(qn("a:pPr")).get("algn") == "r"
+                 and raw_text(p).startswith(LRM) and raw_text(p).endswith(LRM)
+                 and {r.get("lang") for r in p.iter(qn("a:rPr"))} == {"en-US"}}
     assert "SAR 30,247.12" in ltr_right and "40.17%" in ltr_right and "▲ +2.84 pp" in ltr_right
     assert "▼ -7,562.57 (-20.0%)" in ltr_right and "2026-W45" in ltr_right
-    for slide in list(prs.slides)[1:]:  # the week id is its own box in every footer
-        assert "2026-W45" in paragraphs(slide)
+    for slide in list(prs.slides)[1:]:  # the week id is its own small text box in every footer
+        boxes = [sh for sh in slide.shapes if sh.has_text_frame and para_text(sh.text_frame._txBody) == "2026-W45"]
+        assert len(boxes) == 1 and boxes[0].width <= 914400 * 1.1
 
 
 def test_english_paragraphs_are_not_rtl() -> None:
@@ -173,10 +197,12 @@ def test_english_paragraphs_are_not_rtl() -> None:
 def test_arabic_runs_have_an_arabic_capable_font() -> None:
     prs = build_deck(template_facts("ar"), "ar")
     for slide in prs.slides:
-        for rPr in slide._element.iter(qn("a:rPr")):
-            assert rPr.get("lang") == "ar-SA"
-            assert rPr.find(qn("a:cs")).get("typeface") == "Arial"
-            assert rPr.find(qn("a:latin")).get("typeface") == "Arial"
+        for p in slide._element.iter(qn("a:p")):
+            lang = "ar-SA" if ARABIC.search(raw_text(p)) else "en-US"  # LTR-only runs are not tagged Arabic
+            for rPr in p.iter(qn("a:rPr")):
+                assert rPr.get("lang") == lang, raw_text(p)
+                assert rPr.find(qn("a:cs")).get("typeface") == "Arial"
+                assert rPr.find(qn("a:latin")).get("typeface") == "Arial"
 
 
 def test_arabic_tables_are_mirrored() -> None:
@@ -187,7 +213,7 @@ def test_arabic_tables_are_mirrored() -> None:
     first = facts["bridge"]["revenue"][0]
     assert en_tbl.cell(1, 1).text == first["label"]
     assert ar_tbl.cell(1, 2).text == BRIDGE_LABELS_AR[first["label"]]  # label column moved to the right
-    assert ar_tbl.cell(1, 0).text.strip("‪‬") == en_tbl.cell(1, 3).text  # previous week now leftmost
+    assert ar_tbl.cell(1, 0).text.strip(LRM) == en_tbl.cell(1, 3).text  # previous week now leftmost
     assert ar_tbl.cell(0, 1).text == STRINGS["ar"]["this_week"]
     assert ar_tbl.columns[3].width == en_tbl.columns[0].width
 

@@ -4,13 +4,15 @@ The deck reads the finished facts dict (including `ai_summary`), so it never com
 every figure is formatted with the same helpers as the PDF. Text boxes and tables are native shapes so the
 client can edit them; only the three 8-week charts are pictures (the same matplotlib PNGs as the PDF).
 
-Arabic: a paragraph's direction follows its content. Paragraphs with Arabic letters get `a:pPr rtl="1"`; paragraphs
-with none (KPI values, change lines, SKU / product names, week ids, dates) get `rtl="0"`. Both are right-aligned
-unless they are numeric table cells. PowerPoint ignores Unicode bidi control characters here, so mixed lines are split
-instead: Latin / number-only parts go in their own paragraph or text box, and Arabic sentences keep only plain
-numbers. Table columns are physically mirrored (label column on the right; `tblPr rtl` is avoided because
-LibreOffice ignores it and PowerPoint would double-mirror). Runs use Arial for both Latin and complex script (it ships
-with Windows and macOS and has Arabic glyphs). Digits stay Western, as in the PDF.
+Arabic: a paragraph's direction follows its content. Paragraphs with Arabic letters get `a:pPr rtl="1"` and runs
+lang="ar-SA". Paragraphs with none (KPI values, change lines, SKU / product names, week ids, numeric cells) get
+`rtl="0"`, runs lang="en-US" and a U+200E LEFT-TO-RIGHT MARK at both ends; PowerPoint otherwise lays out their
+neutral characters (%, +, -, brackets, dashes) right-to-left. Embedding controls (U+202A-E, U+2066-9) are never used:
+PowerPoint ignores them. Mixed lines are split instead: Latin-only parts go in their own paragraph or text box, and
+Arabic sentences keep only plain numbers and dates. Paragraphs are right-aligned except numeric table cells. Table
+columns are physically mirrored (label column on the right; `tblPr rtl` is avoided because LibreOffice ignores it and
+PowerPoint would double-mirror). Runs use Arial for both Latin and complex script (it ships with Windows and macOS and
+has Arabic glyphs). Digits stay Western, as in the PDF.
 """
 
 import io
@@ -38,6 +40,7 @@ SLIDE_W, SLIDE_H = Emu(12_192_000), Emu(6_858_000)  # PowerPoint widescreen 16:9
 MARGIN = Inches(0.6)
 CONTENT_W = SLIDE_W - 2 * MARGIN
 TONE_COLOR = {"good": GOOD, "bad": BAD, "flat": MUTED}
+LRM = "\u200e"  # LEFT-TO-RIGHT MARK: a strong LTR character (not an embedding control)
 ARABIC_RE = re.compile("[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff]")
 
 DECK_STRINGS = {
@@ -339,11 +342,11 @@ class _Deck:
                    INK, False)]]
         sku_paras = []
         for x in mc["skus"]:
-            if self.rtl:  # "SKU — product" and the date are LTR paragraphs; the Arabic line keeps plain numbers only
+            if self.rtl:  # "SKU — product" is its own LTR paragraph; the Arabic line has the count and the date
                 sku_paras.append(len(paras))
                 paras.append([(x["sku"], INK, True), (f" — {x['product']}", INK, False)])
-                paras.append([(f"{x['lines_to_date']} {t['lines_to_date']}، {t['since']}:", MUTED, False)])
-                paras.append([(x["first_sale"], MUTED, False)])
+                paras.append([(f"{x['lines_to_date']} {t['lines_to_date']}، {t['since']} {x['first_sale']}", MUTED,
+                               False)])
             else:
                 sku_paras.append(len(paras))
                 paras.append([(f"{x['sku']} ", INK, True),
@@ -385,17 +388,37 @@ class _Deck:
         self.trend_slide()
         self.movers_slide()
         self.missing_dq_slide()
-        if self.rtl:  # direction from content: Arabic letters -> rtl="1", none (numbers, SKUs, week ids) -> rtl="0"
+        if self.rtl:
             for slide in self.prs.slides:
                 for p in slide._element.iter(qn("a:p")):
-                    pPr = p.find(qn("a:pPr"))
-                    if pPr is None:  # decorative shapes (bands, cards) carry an empty paragraph too
-                        pPr = etree.Element(qn("a:pPr"))
-                        p.insert(0, pPr)
-                    text = "".join(t.text or "" for t in p.iter(qn("a:t")))
-                    pPr.set("rtl", "1" if ARABIC_RE.search(text) else "0")
-                    pPr.set("algn", pPr.get("algn", "r"))
+                    self._set_direction(p)
         return self.prs
+
+    @staticmethod
+    def _set_direction(p) -> None:
+        """Arabic deck: direction from content.
+
+        Arabic letters -> rtl="1", runs lang="ar-SA". No Arabic letters (KPI values, change lines, SKU / product
+        names, week ids, numeric cells) -> rtl="0", runs lang="en-US", and the text starts and ends with U+200E so the
+        paragraph has strong LTR characters at both ends: PowerPoint lays out neutral characters (%, +, -, brackets,
+        dashes, arrows) by the run language otherwise, and "40.17%" came out as "%40.17" with lang="ar-SA".
+        """
+        pPr = p.find(qn("a:pPr"))
+        if pPr is None:  # decorative shapes (bands, cards) carry an empty paragraph too
+            pPr = etree.Element(qn("a:pPr"))
+            p.insert(0, pPr)
+        pPr.set("algn", pPr.get("algn", "r"))
+        texts = list(p.iter(qn("a:t")))
+        arabic = any(ARABIC_RE.search(t.text or "") for t in texts)
+        pPr.set("rtl", "1" if arabic else "0")
+        if arabic:
+            return
+        for rPr in p.iter(qn("a:rPr")):
+            rPr.set("lang", "en-US")
+        if not "".join(t.text or "" for t in texts).strip():
+            return  # empty cells / decorative shapes: no marks
+        texts[0].text = LRM + texts[0].text
+        texts[-1].text = texts[-1].text + LRM
 
     def _split_latin_label(self, text: str) -> list[str]:
         """Arabic strings that start with the English "Synthetic data — " label become two paragraphs."""
