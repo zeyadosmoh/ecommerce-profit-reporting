@@ -80,7 +80,9 @@ def test_synthetic_banner_on_title_and_footer_on_every_slide(src: str, lang: str
         text = slide_text(slide)
         assert DECK_STRINGS[lang]["footer"] in paragraphs(slide)
         assert "Synthetic data" in text  # English label in both languages, so a forwarded slide is still marked
-    assert "synthetic" in prs.core_properties.title.lower()
+    props = prs.core_properties
+    assert "synthetic" in props.title.lower() and props.subject.startswith("SYNTHETIC DATA")
+    assert props.author == props.last_modified_by == "P3 profit reporting (synthetic data)"  # no template leftovers
 
 
 @pytest.mark.parametrize("src", ["template", "sample"])

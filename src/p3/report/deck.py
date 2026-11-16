@@ -62,7 +62,8 @@ class _Deck:
         self.prs.slide_width, self.prs.slide_height = SLIDE_W, SLIDE_H
         self.prs.core_properties.title = f"{self.t['title']} {facts['week']['iso_week']} (synthetic data)"
         self.prs.core_properties.subject = facts["notice"]
-        self.prs.core_properties.author = "P3 profit reporting (synthetic data)"
+        # the python-pptx default template carries its author's name in lastModifiedBy: overwrite it
+        self.prs.core_properties.author = self.prs.core_properties.last_modified_by = "P3 profit reporting (synthetic data)"
 
     def n(self, s: str) -> str:
         """Numbers, dates, ISO weeks and signed changes read left-to-right even inside an Arabic paragraph."""
