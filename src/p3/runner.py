@@ -27,9 +27,12 @@ from p3.config import Settings
 from p3.llm.base import redact
 
 ISO_WEEK_RE = re.compile(r"^\d{4}-W\d{2}$")
-FILE_RE = re.compile(r"^(?:report(?:\.ar)?\.(?:pdf|html)|facts(?:\.ar)?\.json|preview(?:\.ar)?\.png)$")
+FILE_RE = re.compile(r"^(?:report(?:\.ar)?\.(?:pdf|html|pptx)|facts(?:\.ar)?\.json|preview(?:\.ar)?\.png)$")
 FORBIDDEN_HOSTS = {"0.0.0.0", "::", "[::]"}
 PLACEHOLDER_TOKENS = {"", "change-me"}
+MEDIA_TYPES = {".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+               ".pdf": "application/pdf", ".json": "application/json", ".html": "text/html; charset=utf-8",
+               ".png": "image/png"}
 HEADLINE_KPIS = ["net_revenue", "net_profit", "net_margin_pct_known_cost", "orders", "aov_ex_vat_products"]
 
 
@@ -80,10 +83,11 @@ def default_steps(settings: Settings, mock_store: bool) -> Steps:
 
     def report(req: RunRequest) -> dict:
         with connect(settings) as conn:
-            files = build_report(conn, settings, week=req.week, lang=req.lang, use_ai=req.use_ai)
+            files = build_report(conn, settings, week=req.week, lang=req.lang, use_ai=req.use_ai,
+                                 formats=("pdf", "pptx") if settings.report_attach_pptx else ("pdf",))
         facts = json.loads(files.facts.read_text(encoding="utf-8"))
         return {"facts": facts, "files": {p.suffix.lstrip("."): f"/files/{files.directory.name}/{p.name}"
-                                          for p in (files.facts, files.html, files.pdf)}}
+                                          for p in (files.facts, files.html, files.pdf, files.pptx) if p}}
 
     return Steps(ingest, dbt_build, report)
 
@@ -149,7 +153,7 @@ def create_runner_app(settings: Settings, steps: Steps | None = None, mock_store
         path = Path(settings.reports_dir) / iso_week / name
         if not path.is_file():
             raise HTTPException(404, "not found")
-        return FileResponse(path, filename=name)
+        return FileResponse(path, filename=name, media_type=MEDIA_TYPES.get(path.suffix))
 
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
@@ -179,6 +183,8 @@ def report_email(body: dict) -> dict:
     notice = f"<p style='color:#8a5a00'><b>{html.escape(s['notice'])}</b></p>" if s.get("notice") else ""
     bullets = "".join(f"<li>{html.escape(b)}</li>" for b in s["bullets"] or [])
     subject = f"Weekly profit report {week['iso_week']} ({week['start']} to {week['end']}) - synthetic data"
+    attached = ("The full report is attached as PDF and as an editable PowerPoint deck (.pptx)."
+                if "pptx" in body.get("files", {}) else "The full report is attached as PDF.")
     html_body = (
         f"<div style='font-family:Arial,sans-serif;font-size:14px;color:#1f2933'>"
         f"<p style='background:#fdecea;color:#b42318;padding:6px 8px'><b>{html.escape(body['notice'])}</b></p>"
@@ -186,7 +192,7 @@ def report_email(body: dict) -> dict:
         f"<p>{html.escape(week['start'])} to {html.escape(week['end'])} · SAR, ex-VAT · change vs previous week</p>"
         f"<table cellpadding='4' style='border-collapse:collapse'>{rows}</table>"
         f"<h3>Summary</h3>{notice}<ul>{bullets}</ul><p style='color:#616e7c'>{source}.</p>"
-        f"<p>The full report is attached as PDF.</p></div>")
+        f"<p>{attached}</p></div>")
     text = "\n".join([body["notice"], "", subject, ""] + [f"- {b}" for b in s["bullets"] or []])
     return {"subject": subject, "html": html_body, "text": text}
 

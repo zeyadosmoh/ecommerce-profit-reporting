@@ -2,10 +2,14 @@
 
 `workflows/weekly_report.json` runs **every Monday at 08:00 Asia/Riyadh**. It:
 1. calls the P3 runner on the host: `POST /run` runs ingest → dbt build → report for the last full week;
-2. if the run succeeded, downloads the PDF (`GET /files/<iso-week>/report.pdf`) and emails it to Mailpit, with the
-   headline KPIs and the AI summary in the body;
+2. if the run succeeded, downloads the PDF (`GET /files/<iso-week>/report.pdf`) and the editable PowerPoint deck
+   (`report.pptx`), and emails both to Mailpit, with the headline KPIs and the AI summary in the body;
 3. otherwise sends an **alert email** with the error. The three failure cases are: the runner is unreachable, a
-   pipeline step failed (the step is named), or the PDF download failed.
+   pipeline step failed (the step is named), or a report download failed.
+
+The deck is behind the runner setting `REPORT_ATTACH_PPTX` (default `true`). With `false` the runner builds only the
+PDF, the run response has no `files.pptx`, the **Attach PPTX?** node skips the download and the email carries the
+PDF alone.
 
 The workflow file contains **no secrets**. The runner token lives in an n8n credential named `P3 runner API`
 (Header Auth), and SMTP in a credential named `Mailpit SMTP`.
@@ -58,6 +62,8 @@ docker exec p3-n8n n8n publish:workflow --id=p3WeeklyReport01      # schedule it
 ## Verified
 
 The flow was tested end to end against the real n8n 2.47.2 and Mailpit v1.32.0 containers:
-- **success:** the email arrived with `report.pdf` attached, the KPIs and the verified AI summary;
+- **success:** the email arrived with `report.pdf` and `report.pptx` attached (the deck opens with 7 slides), the
+  KPIs and the verified AI summary;
+- **`REPORT_ATTACH_PPTX=false`:** the email arrived with `report.pdf` only and says "attached as PDF";
 - **runner stopped:** an alert email arrived ("runner unreachable", `ECONNREFUSED`);
 - **store API down:** an alert email arrived naming the failed step (`ingest`).

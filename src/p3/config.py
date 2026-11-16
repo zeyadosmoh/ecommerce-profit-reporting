@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     llm_price_output_per_mtok: str = ""
     report_lang: str = "en"
     reports_dir: Path = Path("reports")
+    # Runner/n8n: also build report.pptx (editable PowerPoint) and attach it to the weekly email next to the PDF.
+    report_attach_pptx: bool = True
 
     runner_api_token: str = ""
     runner_host: str = "127.0.0.1"

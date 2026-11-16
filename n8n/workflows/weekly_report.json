@@ -143,7 +143,7 @@
         "emailFormat": "html",
         "html": "={{ $('Run weekly pipeline').item.json.body.email.html }}",
         "options": {
-          "attachments": "data",
+          "attachments": "={{ $binary.pptx ? 'data,pptx' : 'data' }}",
           "appendAttribution": false
         }
       },
@@ -152,7 +152,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        960,
+        1680,
         -200
       ],
       "credentials": {
@@ -166,7 +166,7 @@
       "parameters": {
         "fromEmail": "P3 reports <reports@p3-profit.local>",
         "toEmail": "owner@p3-profit.local",
-        "subject": "={{ $('Run weekly pipeline').item.json.body?.email?.subject ?? 'ALERT: P3 weekly report failed (runner unreachable or PDF download failed)' }}",
+        "subject": "={{ $('Run weekly pipeline').item.json.body?.email?.subject ?? 'ALERT: P3 weekly report failed (runner unreachable or report download failed)' }}",
         "emailFormat": "html",
         "html": "={{ $('Run weekly pipeline').item.json.body?.email?.html ?? ('<h2>Weekly report run failed</h2><pre>' + ($json.error?.message ?? $json.message ?? JSON.stringify($json)) + '</pre><p>SYNTHETIC DATA demo. Check that `python -m p3 runner` is running on the host.</p>') }}",
         "options": {
@@ -178,7 +178,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        960,
+        1680,
         200
       ],
       "credentials": {
@@ -187,6 +187,86 @@
           "name": "Mailpit SMTP"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "p3-cond-has-pptx",
+              "leftValue": "={{ $('Run weekly pipeline').item.json.body.files.pptx ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "p3-attach-pptx",
+      "name": "Attach PPTX?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://host.docker.internal:8770{{ $('Run weekly pipeline').item.json.body.files.pptx }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "pptx"
+            }
+          }
+        }
+      },
+      "id": "p3-download-pptx",
+      "name": "Download PPTX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        -200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "P3RunnerApi0001",
+          "name": "P3 runner API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep the PDF downloaded earlier next to the PPTX, so the email gets both attachments.\nconst pdf = $('Download PDF').first().binary.data;\nreturn $input.all().map(item => ({ json: item.json, binary: { ...item.binary, data: pdf } }));"
+      },
+      "id": "p3-pdf-and-pptx",
+      "name": "PDF + PPTX",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -200
+      ]
     }
   ],
   "connections": {
@@ -252,7 +332,7 @@
       "main": [
         [
           {
-            "node": "Email report",
+            "node": "Attach PPTX?",
             "type": "main",
             "index": 0
           }
@@ -260,6 +340,53 @@
         [
           {
             "node": "Email failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach PPTX?": {
+      "main": [
+        [
+          {
+            "node": "Download PPTX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download PPTX": {
+      "main": [
+        [
+          {
+            "node": "PDF + PPTX",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF + PPTX": {
+      "main": [
+        [
+          {
+            "node": "Email report",
             "type": "main",
             "index": 0
           }

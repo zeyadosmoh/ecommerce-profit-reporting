@@ -95,3 +95,50 @@ def test_refuses_placeholder_token_and_all_interfaces(tmp_path: Path) -> None:
         create_runner_app(Settings(runner_api_token="change-me"), ok_steps([]))
     with pytest.raises(ValueError, match="all interfaces"):
         serve(settings(tmp_path), "0.0.0.0", 8770, False)
+
+
+def test_pptx_is_listed_attached_and_downloadable(tmp_path: Path) -> None:
+    steps = ok_steps([])
+    steps.report = lambda req: {"facts": FACTS, "files": {"pdf": "/files/2026-W45/report.pdf",
+                                                          "pptx": "/files/2026-W45/report.pptx"}}
+    client = TestClient(create_runner_app(settings(tmp_path), steps))
+    body = client.post("/run", headers=AUTH).json()
+    assert body["files"]["pptx"] == "/files/2026-W45/report.pptx"
+    assert "editable PowerPoint deck (.pptx)" in body["email"]["html"]
+    (tmp_path / "2026-W45").mkdir()
+    (tmp_path / "2026-W45" / "report.ar.pptx").write_bytes(b"PK\x03\x04 deck")
+    r = client.get("/files/2026-W45/report.ar.pptx", headers=AUTH)
+    assert r.status_code == 200 and r.content == b"PK\x03\x04 deck"
+    assert r.headers["content-type"] == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+
+def test_pdf_only_email_does_not_mention_pptx(tmp_path: Path) -> None:
+    body = TestClient(create_runner_app(settings(tmp_path), ok_steps([]))).post("/run", headers=AUTH).json()
+    assert "pptx" not in body["files"] and "PowerPoint" not in body["email"]["html"]
+    assert "attached as PDF." in body["email"]["html"]
+
+
+@pytest.mark.parametrize(("attach", "formats"), [(True, ("pdf", "pptx")), (False, ("pdf",))])
+def test_report_step_builds_pptx_only_when_the_setting_is_on(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                             attach: bool, formats: tuple[str, ...]) -> None:
+    import contextlib
+
+    import p3.db.connection
+    import p3.report.build
+    from p3.report.build import ReportFiles
+    from p3.runner import RunRequest, default_steps
+
+    seen: dict = {}
+    d = tmp_path / "2026-W45"
+    d.mkdir()
+    (d / "facts.json").write_text(json.dumps(FACTS), encoding="utf-8")
+
+    def fake_build(conn: object, s: Settings, **kw: object) -> ReportFiles:
+        seen.update(kw)
+        return ReportFiles(d, d / "facts.json", d / "report.html", d / "report.pdf", None, None,
+                           d / "report.pptx" if "pptx" in kw["formats"] else None)
+    monkeypatch.setattr(p3.report.build, "build_report", fake_build)
+    monkeypatch.setattr(p3.db.connection, "connect", lambda s: contextlib.nullcontext())
+    out = default_steps(settings(tmp_path, report_attach_pptx=attach), mock_store=True).report(RunRequest())
+    assert seen["formats"] == formats
+    assert ("pptx" in out["files"]) is attach and out["files"]["pdf"] == "/files/2026-W45/report.pdf"
