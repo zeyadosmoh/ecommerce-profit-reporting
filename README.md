@@ -15,6 +15,7 @@ week, and emails an automated weekly report with an AI-written summary whose num
 | ![EN report page 1](docs/sample-report/2026-W45/preview.png) | ![AR report page 1](docs/sample-report/2026-W45/preview.ar.png) |
 
 Full samples: [EN PDF](docs/sample-report/2026-W45/report.pdf) · [AR PDF](docs/sample-report/2026-W45/report.ar.pdf) ·
+editable [EN PowerPoint](docs/sample-report/2026-W45/report.pptx) · [AR PowerPoint](docs/sample-report/2026-W45/report.ar.pptx) ·
 [facts.json](docs/sample-report/2026-W45/facts.json) (every number plus the AI verification log).
 
 ## What this proves
@@ -32,13 +33,13 @@ Full samples: [EN PDF](docs/sample-report/2026-W45/report.pdf) · [AR PDF](docs/
   its direction (rose/fell, ارتفع/انخفض), its unit (%, percentage points, SAR, counts), and that every stated cause
   cites a real profit driver. It also checks that the top insight is covered and that the action names a SKU or
   lever. Failures trigger one retry, then a deterministic template. Both samples above passed on the first attempt.
-- **Tested end to end.** 216 pytest tests and 68 dbt data tests on 17 models, including:
+- **Tested end to end.** 254 pytest tests and 68 dbt data tests on 17 models, including:
   - idempotent incremental ingestion
   - a failed run leaving no partial rows
   - English and Arabic verifier cases
-  - PDF output
+  - PDF output, and PowerPoint decks whose every number is checked against `facts.json`
 - **Automated.** n8n runs every Monday at 08:00 Riyadh time: runner → ingest → dbt build → report → email with the
-  PDF ([screenshot](docs/img/mailpit-email.png)), with an alert email on any failure (tested). GitHub Actions runs
+  PDF and the editable PowerPoint ([screenshot](docs/img/mailpit-email.png)), with an alert email on any failure (tested). GitHub Actions runs
   the pipeline and the tests with no API key.
 
 ## Architecture
@@ -56,13 +57,13 @@ flowchart LR
     Marts --> Facts["facts.json<br/>all numbers precomputed"]
     Facts --> LLM["Gemini summary"]
     LLM --> Verify{"verifier<br/>numbers · direction · units · causes"}
-    Verify -->|pass| Report["report.html + report.pdf<br/>EN / AR"]
+    Verify -->|pass| Report["report.pdf + report.pptx<br/>EN / AR"]
     Verify -->|"fail twice"| Template["template summary"] --> Report
     N8N["n8n<br/>Mon 08:00 Riyadh"] -->|"POST /run"| Runner["runner API<br/>127.0.0.1:8770"]
     Runner --> Raw
     Runner --> DBT
     Runner --> Report
-    Report -->|PDF| Mail["Mailpit<br/>email + alert"]
+    Report -->|"PDF + PPTX"| Mail["Mailpit<br/>email + alert"]
     N8N --> Mail
 ```
 
@@ -104,6 +105,7 @@ docker compose up -d --wait                  # Postgres 16 -> 127.0.0.1:5436
 .venv/bin/python -m p3 profit-summary        # last full week KPIs, top/bottom products, missing-cost warning
 .venv/bin/playwright install chromium        # Phase 3, once per user: Chromium for HTML -> PDF
 .venv/bin/python -m p3 report                # weekly report: facts.json + report.html + report.pdf
+.venv/bin/python -m p3 report --format pdf,pptx   # + editable PowerPoint (report.pptx)
 python3 scripts/append_env.py                # Phase 4: append RUNNER_API_TOKEN etc. to .env (existing lines untouched)
 docker compose up -d n8n mailpit             # n8n 127.0.0.1:5679, Mailpit UI 127.0.0.1:8025
 .venv/bin/python -m p3 runner --with-mock-store   # runner API for n8n on 127.0.0.1:8770; import: n8n/README.md
@@ -346,6 +348,44 @@ statuses, plus a `unique_combination` test.
 - the exact Arabic words `محتمل` / `ألف` / `آلاف` in the prompt and template
 - an end-to-end report whose PDF text contains the synthetic-data banner
 
+## Editable PowerPoint deck
+
+```bash
+.venv/bin/python -m p3 report --format pdf,pptx           # adds reports/2026-W45/report.pptx (default: pdf only)
+.venv/bin/python -m p3 report --lang ar --format pptx     # facts.ar.json + report.ar.pptx, right-to-left
+.venv/bin/python -m p3 deck --facts reports/2026-W45/facts.json   # rebuild a deck from facts.json: no DB, no AI call
+```
+
+- **Built only from `facts.json`:** the deck reads the finished facts, including the verified AI summary (or the
+  template summary and its notice, the same rules as the PDF). It never computes a number or calls the LLM. A test
+  runs every number in the deck's text and tables through the verifier's number check against `facts.json`.
+- **Seven 16:9 slides, native and editable:** title with week, dates and the synthetic-data banner; six KPI cards
+  with change and direction; the summary bullets; the profit bridge as tables; the three 8-week charts (the same
+  matplotlib PNGs as the PDF, the only pictures); top/bottom product movers; missing cost and data quality. Same
+  colors as the PDF. **Every slide has a "Synthetic data" footer**, so a single forwarded slide is still labelled.
+- **Arabic:** every paragraph has `rtl="1"` and is right-aligned, table columns are mirrored (labels on the right),
+  and runs use Arial for Latin and complex script (it ships with Windows and macOS and has Arabic glyphs). Digits stay
+  Western as in the PDF. Numbers, dates, ISO weeks and SKUs are wrapped in invisible left-to-right embedding marks
+  so `-7,562.57 (-20.0%)` and `2026-W45` keep their order inside right-to-left text. The verifier strips those marks
+  before matching.
+- **Email:** the runner attaches `report.pptx` next to the PDF when `REPORT_ATTACH_PPTX=true` (the default).
+
+**Sample:** [report.pptx](docs/sample-report/2026-W45/report.pptx) · [report.ar.pptx](docs/sample-report/2026-W45/report.ar.pptx), built with
+`p3 deck` from the committed `facts.json` / `facts.ar.json`, so they carry exactly the Gemini bullets in the sample
+PDFs. The previews below are LibreOffice renders from a local Docker image (`docker build -t p3-deck-preview
+docker/deck-preview`, then `python scripts/render_deck_previews.py docs/sample-report/2026-W45`). Nothing is
+installed on the host. PowerPoint can wrap lines slightly differently.
+
+| English | Arabic |
+|---|---|
+| <img src="docs/sample-report/2026-W45/deck-preview/report-01.png" width="420" alt="EN slide 1"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-01.png" width="420" alt="AR slide 1"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-02.png" width="420" alt="EN slide 2"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-02.png" width="420" alt="AR slide 2"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-03.png" width="420" alt="EN slide 3"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-03.png" width="420" alt="AR slide 3"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-04.png" width="420" alt="EN slide 4"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-04.png" width="420" alt="AR slide 4"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-05.png" width="420" alt="EN slide 5"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-05.png" width="420" alt="AR slide 5"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-06.png" width="420" alt="EN slide 6"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-06.png" width="420" alt="AR slide 6"> |
+| <img src="docs/sample-report/2026-W45/deck-preview/report-07.png" width="420" alt="EN slide 7"> | <img src="docs/sample-report/2026-W45/deck-preview/report.ar-07.png" width="420" alt="AR slide 7"> |
+
 ## Automation and CI (Phase 4)
 
 - **Runner API** (`python -m p3 runner`, FastAPI on `127.0.0.1:8770`, bearer token `RUNNER_API_TOKEN`):
@@ -356,8 +396,9 @@ statuses, plus a `unique_combination` test.
   - n8n runs in Docker and cannot execute host Python, so it calls this API. With Docker Desktop, the container
     reaches the runner bound to `127.0.0.1` through `host.docker.internal`. The runner refuses `0.0.0.0`.
 - **n8n** (`n8n/workflows/weekly_report.json`, no credentials inside) runs every Monday at 08:00 Asia/Riyadh:
-  - it runs the pipeline, downloads the PDF and emails it to Mailpit with the KPIs and the summary;
-  - on any failure (runner down, a step failed, PDF missing) it sends an alert email instead.
+  - it runs the pipeline, downloads the PDF and the PowerPoint deck and emails both to Mailpit with the KPIs and
+    the summary (`REPORT_ATTACH_PPTX=false` sends the PDF alone);
+  - on any failure (runner down, a step failed, a file missing) it sends an alert email instead.
   - Import steps and the three tested paths are in [n8n/README.md](n8n/README.md).
 - **CI** (`.github/workflows/ci.yml`) runs on Python 3.12 and 3.14 with a Postgres service:
   - `generate` → `init-db` → `ingest --in-process` (twice: the second run upserts 0 rows) → `dbt build` →
@@ -395,6 +436,8 @@ statuses, plus a `unique_combination` test.
 - **A template summary as the fallback, not a retry loop:** at most two LLM calls, and a report always ships.
 - **Self-contained HTML (charts and font embedded):** the file renders the same offline, in email and in the PDF.
   The cost is a ~1.2 MB Arabic HTML file, because of the embedded font.
+- **Native PowerPoint shapes, not slide screenshots:** the client can edit every number and sentence. The cost is
+  a second renderer to keep in step with the PDF, held together by the same formatters and a number test.
 - **The runner is a host process called over HTTP, not a container:** it reuses the project `.venv` (dbt, Playwright)
   as is. The cost is a token-protected port on 127.0.0.1.
 - **The email bodies are built in Python, not in n8n:** they are escaped and tested, and the workflow stays a thin
