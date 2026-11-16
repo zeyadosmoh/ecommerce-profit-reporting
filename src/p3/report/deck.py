@@ -277,8 +277,9 @@ class _Deck:
         rows, _ = self._bridge_rows("excluded", with_op=False)
         self.table(s, MARGIN, y + Inches(0.4), half, [""] + head[2:], rows, [0.58, 0.21, 0.21],
                    ["start", "end", "end"], row_h=Inches(0.28), size=10)
-        note = self.t["margin_note"].format(margin=self.f["kpis"]["net_margin_pct_known_cost"]["this_week"],
-                                            excluded=money(self.f["missing_cost"]["net_revenue_this_week"]))
+        margin = self.f["kpis"]["net_margin_pct_known_cost"]["this_week"]
+        note = self.t["margin_note"].format(margin=margin, excluded=self.n(money(self.f["missing_cost"]["net_revenue_this_week"])))
+        note = note.replace(f"{margin}%", self.n(f"{margin}%"), 1)  # keep "40.17%" together in RTL
         y2 = Inches(1.6) + Inches(0.32) * (len(self.f["bridge"]["profit"]) + 1) + Inches(0.2)
         self.text(s, right, y2, half, Inches(0.8), [note], size=11, color=MUTED)
 
@@ -331,9 +332,12 @@ class _Deck:
         paras = [[(t["missing"], WARN, True)],
                  [(t["missing_text"].format(lines=mc["lines_this_week"], revenue=self.n(money(mc["net_revenue_this_week"]))),
                    INK, False)]]
-        paras += [[(self.n(x['sku']) + " ", INK, True),
-                   (f"{x['product']} — {x['lines_to_date']} {t['lines_to_date']}, {t['since']} {self.n(x['first_sale'])}",
-                    INK, False)] for x in mc["skus"]]
+        # RTL: the RLM after the product name lets "280 بند" flow right-to-left instead of joining the English run
+        # (one LTR embedding spans the bold SKU run and the product name, so "ACC-006 Magnetic Car Mount" stays whole)
+        lre, pdf, rlm = (LRE, PDF, "\u200f") if self.rtl else ("", "", "")
+        paras += [[(f"{lre}{x['sku']} ", INK, True),
+                   (f"{x['product']}{pdf} {rlm}— {x['lines_to_date']} {t['lines_to_date']}, {t['since']} "
+                    f"{self.n(x['first_sale'])}", INK, False)] for x in mc["skus"]]
         warn.text_frame.vertical_anchor = MSO_ANCHOR.TOP
         self._fill_frame(warn.text_frame, paras, 14, space_after=8)
         warn.text_frame.paragraphs[0].runs[0].font.size = Pt(18)
