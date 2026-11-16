@@ -1,6 +1,7 @@
 """Editable PowerPoint deck: built only from facts.json, no DB and no AI key needed."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -75,7 +76,12 @@ def test_every_number_in_the_deck_is_in_facts(src: str, lang: str) -> None:
 @pytest.mark.parametrize(("src", "lang"), CASES)
 def test_synthetic_banner_on_title_and_footer_on_every_slide(src: str, lang: str) -> None:
     prs = build_deck(facts_for(src, lang), lang)
-    assert STRINGS[lang]["banner"] in paragraphs(prs.slides[0])
+    banner = STRINGS[lang]["banner"]
+    if lang == "ar":  # the English label and the Arabic sentence are separate paragraphs (no mixed-direction line)
+        head, rest = banner.split(" — ", 1)
+        assert head == "Synthetic data" and {head, rest} <= set(paragraphs(prs.slides[0]))
+    else:
+        assert banner in paragraphs(prs.slides[0])
     for slide in prs.slides:
         text = slide_text(slide)
         assert DECK_STRINGS[lang]["footer"] in paragraphs(slide)
@@ -85,17 +91,78 @@ def test_synthetic_banner_on_title_and_footer_on_every_slide(src: str, lang: str
     assert props.author == props.last_modified_by == "P3 profit reporting (synthetic data)"  # no template leftovers
 
 
+def para_text(p) -> str:
+    return "".join(t.text or "" for t in p.iter(qn("a:t")))
+
+
+ARABIC = re.compile("[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff]")
+BIDI_CONTROLS = re.compile("[\u200e\u200f\u202a-\u202e\u2066-\u2069]")
+
+
 @pytest.mark.parametrize("src", ["template", "sample"])
-def test_every_arabic_paragraph_is_rtl_and_right_aligned(src: str) -> None:
+def test_arabic_paragraph_direction_follows_content(src: str) -> None:
     prs = build_deck(facts_for(src, "ar"), "ar")
-    count = 0
+    rtl = ltr = 0
     for slide in prs.slides:
         for p in slide._element.iter(qn("a:p")):
-            pPr = p.find(qn("a:pPr"))
-            assert pPr is not None and pPr.get("rtl") == "1", "".join(t.text or "" for t in p.iter(qn("a:t")))
-            assert pPr.get("algn") in ("r", "l", "ctr")  # labels right; numeric table columns sit at the far end
-            count += 1
-    assert count > 150
+            text, pPr = para_text(p), p.find(qn("a:pPr"))
+            assert pPr is not None, text
+            if ARABIC.search(text):
+                assert pPr.get("rtl") == "1", text
+                rtl += 1
+            else:  # KPI values, change lines, SKU / product names, week ids, dates, numeric cells
+                assert pPr.get("rtl") == "0", text
+                ltr += 1
+            assert pPr.get("algn") in ("r", "l", "ctr")  # right, except numeric table columns at the far end
+    assert rtl > 60 and ltr > 60
+
+
+@pytest.mark.parametrize(("src", "lang"), CASES)
+def test_no_bidi_control_characters_in_deck_text(src: str, lang: str) -> None:
+    # PowerPoint ignores LRE/PDF/LRM here, so the deck must not rely on them
+    for slide in build_deck(facts_for(src, lang), lang).slides:
+        for text in paragraphs(slide):
+            assert not BIDI_CONTROLS.search(text), repr(text)
+
+
+def test_arabic_mixed_tokens_never_share_a_paragraph_with_arabic_text() -> None:
+    """SKUs ("ACC-006") and week ids ("2026-W45") are reordered by PowerPoint inside RTL text, so they get their own
+    LTR paragraph or box. The AI bullets on slide 3 are verified model text and are left as written."""
+    facts = sample_facts("ar")
+    prs = build_deck(facts, "ar")
+    token = re.compile(r"[A-Z]{3}-\d{3}|\d{4}-W\d{2}")
+    for n, slide in enumerate(prs.slides):
+        for p in slide._element.iter(qn("a:p")):
+            text = para_text(p)
+            if n == 2 and text in facts["ai_summary"]["bullets"]:
+                continue
+            assert not (ARABIC.search(text) and token.search(text)), text
+
+
+def test_arabic_sku_lines_are_ltr_and_descriptions_rtl_with_arabic_comma() -> None:
+    facts = template_facts("ar")
+    slide = build_deck(facts, "ar").slides[6]
+    paras = list(slide._element.iter(qn("a:p")))
+    texts = [para_text(p) for p in paras]
+    for sku in facts["missing_cost"]["skus"]:
+        i = texts.index(f"{sku['sku']} — {sku['product']}")
+        pPr = paras[i].find(qn("a:pPr"))
+        assert pPr.get("rtl") == "0" and pPr.get("algn") == "r"
+        desc = texts[i + 1]
+        assert paras[i + 1].find(qn("a:pPr")).get("rtl") == "1"
+        assert desc == f"{sku['lines_to_date']} {STRINGS['ar']['lines_to_date']}، {STRINGS['ar']['since']}:"
+        assert texts[i + 2] == sku["first_sale"] and paras[i + 2].find(qn("a:pPr")).get("rtl") == "0"  # date on its own
+
+
+def test_arabic_kpi_values_and_footer_week_are_right_aligned_ltr() -> None:
+    facts = template_facts("ar")
+    prs = build_deck(facts, "ar")
+    ltr_right = {para_text(p) for s in prs.slides for p in s._element.iter(qn("a:p"))
+                 if p.find(qn("a:pPr")).get("rtl") == "0" and p.find(qn("a:pPr")).get("algn") == "r"}
+    assert "SAR 30,247.12" in ltr_right and "40.17%" in ltr_right and "▲ +2.84 pp" in ltr_right
+    assert "▼ -7,562.57 (-20.0%)" in ltr_right and "2026-W45" in ltr_right
+    for slide in list(prs.slides)[1:]:  # the week id is its own box in every footer
+        assert "2026-W45" in paragraphs(slide)
 
 
 def test_english_paragraphs_are_not_rtl() -> None:
@@ -177,3 +244,31 @@ def test_parse_formats_rejects_unknown(value: str) -> None:
 def test_unknown_deck_language() -> None:
     with pytest.raises(ValueError):
         build_deck(template_facts("en"), "fr")
+
+
+@pytest.mark.parametrize("lang", ["en", "ar"])
+def test_data_quality_amount_is_labelled_by_order_week_in_deck_and_pdf(lang: str) -> None:
+    from p3.report.build import summary_label
+    from p3.report.render import SummaryView, render_html
+
+    facts = template_facts(lang)
+    t = STRINGS[lang]
+    text = slide_text(build_deck(facts, lang).slides[6])
+    assert t["dq_amount"] in text and t["dq_basis"] in text
+    ai = facts["ai_summary"]
+    html = render_html(facts, SummaryView(ai["bullets"], summary_label(ai, lang), ai["notice"]), lang)
+    assert t["dq_amount"] in html and t["dq_basis"].replace("'", "&#39;") in html
+
+
+def test_render_from_facts_writes_the_deck_and_leaves_facts_untouched(tmp_path: Path) -> None:
+    from p3.report.build import render_from_facts
+
+    week = tmp_path / "2026-W45"
+    week.mkdir()
+    facts_path = week / "facts.ar.json"
+    facts_path.write_text(json.dumps(template_facts("ar"), ensure_ascii=False), encoding="utf-8")
+    before = facts_path.read_bytes()
+    files = render_from_facts(facts_path, "pptx")
+    assert files.pptx == week / "report.ar.pptx" and files.pdf is None and files.summary is None
+    assert facts_path.read_bytes() == before
+    assert main(["report", "--from-facts", str(facts_path), "--format", "pptx"]) == 0
