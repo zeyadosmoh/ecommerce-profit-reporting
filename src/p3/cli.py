@@ -7,6 +7,7 @@ from pathlib import Path
 from p3 import SYNTHETIC_NOTICE
 from p3.config import get_settings
 from p3.db.connection import apply_schema, connect, drop_schema
+from p3.report.formats import parse_formats
 
 
 def cmd_init_db(args: argparse.Namespace) -> int:
@@ -111,17 +112,29 @@ def cmd_report(args: argparse.Namespace) -> int:
     with connect(settings) as conn:
         try:
             files = build_report(conn, settings, week=args.week, lang=args.lang, use_ai=not args.no_ai,
-                                 out_dir=args.out, preview=args.preview)
+                                 out_dir=args.out, preview=args.preview, formats=args.format)
         except (FactsError, ValueError) as exc:
             print(f"Report failed: {exc}")
             return 1
     s = files.summary
     print(SYNTHETIC_NOTICE)
-    print(f"Wrote {files.directory}/: {files.facts.name}, {files.html.name}, {files.pdf.name}"
-          + (f", {files.preview.name}" if files.preview else ""))
+    print(f"Wrote {files.directory}/: " + ", ".join(p.name for p in files.written))
     print(f"Summary: source={s.source} status={s.status}" + (f" ({s.log.get('reason')})" if s.log.get("reason") else ""))
     if s.notice:
         print(f"  {s.notice}")
+    return 0
+
+
+def cmd_deck(args: argparse.Namespace) -> int:
+    import json
+
+    from p3.report.deck import write_deck
+
+    facts = json.loads(args.facts.read_text(encoding="utf-8"))
+    lang = args.lang or (facts.get("report") or {}).get("language") or (facts.get("ai_summary") or {}).get("language") or "en"
+    out = args.out or args.facts.with_name("report.pptx" if lang == "en" else f"report.{lang}.pptx")
+    print(SYNTHETIC_NOTICE)
+    print(f"Wrote {write_deck(facts, out, lang)} (from {args.facts}, no AI call)")
     return 0
 
 
@@ -180,13 +193,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--with-mock-store", action="store_true", help="ingest from the in-process mock store (demo)")
     p.set_defaults(func=cmd_runner)
 
-    p = sub.add_parser("report", help="weekly report: facts.json, report.html, report.pdf (+ AI summary)")
+    p = sub.add_parser("report", help="weekly report: facts.json + report.pdf and/or report.pptx (+ AI summary)")
     p.add_argument("--week", type=date.fromisoformat, default=None, help="ISO week Monday (default: last full week)")
     p.add_argument("--lang", choices=["en", "ar"], default=None, help="summary/report language (default REPORT_LANG)")
     p.add_argument("--no-ai", action="store_true", help="use the deterministic template summary")
     p.add_argument("--out", type=Path, default=None, help="output root (default REPORTS_DIR=reports)")
     p.add_argument("--preview", action="store_true", help="also write a PNG preview of page 1")
+    p.add_argument("--format", type=parse_formats, default=("pdf",), metavar="pdf|pptx|pdf,pptx",
+                   help="outputs next to facts.json (default pdf; pptx = editable PowerPoint, AR is right-to-left)")
     p.set_defaults(func=cmd_report)
+
+    p = sub.add_parser("deck", help="build report.pptx / report.ar.pptx from an existing facts.json (no DB, no AI)")
+    p.add_argument("--facts", type=Path, required=True, help="facts.json or facts.ar.json written by `p3 report`")
+    p.add_argument("--lang", choices=["en", "ar"], default=None, help="default: the language recorded in facts.json")
+    p.add_argument("--out", type=Path, default=None, help="default: report[.ar].pptx next to the facts file")
+    p.set_defaults(func=cmd_deck)
 
     return parser
 

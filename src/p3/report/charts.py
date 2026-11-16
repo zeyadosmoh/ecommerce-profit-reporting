@@ -1,4 +1,4 @@
-"""8-week trend charts as PNG data URIs (matplotlib, Agg backend, deterministic output)."""
+"""8-week trend charts as PNGs (matplotlib, Agg backend, deterministic output): raw bytes for the deck, data URIs for HTML."""
 
 import base64
 import io
@@ -12,11 +12,11 @@ from matplotlib.ticker import FuncFormatter  # noqa: E402
 INK, MUTED, ACCENT, ACCENT_SOFT, GRID = "#1f2933", "#7b8794", "#2f6f5e", "#a7cbbf", "#e4e7eb"
 
 
-def _png(fig: plt.Figure) -> str:
+def _png(fig: plt.Figure) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=160, bbox_inches="tight", metadata={"Software": None})
     plt.close(fig)
-    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    return buf.getvalue()
 
 
 def _axes(labels: list[str]) -> tuple[plt.Figure, plt.Axes]:
@@ -30,7 +30,7 @@ def _axes(labels: list[str]) -> tuple[plt.Figure, plt.Axes]:
     return fig, ax
 
 
-def trend_charts(trend: list[dict]) -> dict[str, str]:
+def trend_chart_pngs(trend: list[dict]) -> dict[str, bytes]:
     labels = [t["week_start"][5:] for t in trend]  # MM-DD of the Monday
     last = len(trend) - 1
     thousands = FuncFormatter(lambda v, _: f"{v / 1000:.0f}k")
@@ -56,3 +56,7 @@ def trend_charts(trend: list[dict]) -> dict[str, str]:
     ax.set_ylim(min(values) - 5, max(values) + 5)
     margin = _png(fig)
     return {"net_revenue": revenue, "net_profit": profit, "margin": margin}
+
+
+def trend_charts(trend: list[dict]) -> dict[str, str]:
+    return {k: "data:image/png;base64," + base64.b64encode(v).decode() for k, v in trend_chart_pngs(trend).items()}
