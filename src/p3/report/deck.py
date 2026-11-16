@@ -30,7 +30,7 @@ INK, MUTED, LINE, SOFT, ACCENT = "1F2933", "616E7C", "E4E7EB", "F5F7FA", "2F6F5E
 GOOD, BAD, WARN_BG, WARN, WARN_LINE, BANNER, BANNER_LINE, WHITE = (
     "1B7F4B", "B42318", "FFF7E6", "8A5A00", "F3D9A4", "FDECEA", "F5C2BD", "FFFFFF")
 FONT = "Arial"
-SLIDE_W, SLIDE_H = Inches(13.333), Inches(7.5)
+SLIDE_W, SLIDE_H = Emu(12_192_000), Emu(6_858_000)  # PowerPoint widescreen 16:9 (13.333 x 7.5 in)
 MARGIN = Inches(0.6)
 CONTENT_W = SLIDE_W - 2 * MARGIN
 TONE_COLOR = {"good": GOOD, "bad": BAD, "flat": MUTED}
@@ -367,6 +367,15 @@ class _Deck:
         self.trend_slide()
         self.movers_slide()
         self.missing_dq_slide()
+        if self.rtl:  # decorative shapes (bands, cards) carry an empty paragraph too: mark it RTL as well
+            for slide in self.prs.slides:
+                for p in slide._element.iter(qn("a:p")):
+                    pPr = p.find(qn("a:pPr"))
+                    if pPr is None:
+                        pPr = etree.Element(qn("a:pPr"))
+                        p.insert(0, pPr)
+                    pPr.set("rtl", "1")
+                    pPr.set("algn", pPr.get("algn", "r"))
         return self.prs
 
 

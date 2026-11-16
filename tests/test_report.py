@@ -96,3 +96,32 @@ def test_movers_flag_products_without_sales(built: psycopg.Connection, settings:
     assert all(m["net_revenue_this_week"] != 0 for m in movers if m["sold_this_week"])
     files = build_report(built, settings, WEEK, "en", use_ai=False, out_dir=tmp_path)
     assert "no sales this week" in files.html.read_text()
+
+
+def test_pptx_only_with_no_key_writes_facts_and_deck(built: psycopg.Connection, settings: Settings,
+                                                     tmp_path: Path) -> None:
+    from pptx import Presentation
+
+    files = build_report(built, settings.model_copy(update={"gemini_api_key": "", "llm_api_key": ""}), WEEK, "ar",
+                         out_dir=tmp_path, formats="pptx")
+    assert files.html is None and files.pdf is None and files.pptx.name == "report.ar.pptx"
+    assert sorted(p.name for p in files.directory.iterdir()) == ["facts.ar.json", "report.ar.pptx"]
+    saved = json.loads(files.facts.read_text())
+    assert saved["report"]["files"] == ["report.ar.pptx"] and saved["ai_summary"]["status"] == "no_llm"
+    assert len(Presentation(str(files.pptx)).slides) == 7
+
+
+def test_pdf_and_pptx_carry_the_same_verified_summary(built: psycopg.Connection, settings: Settings,
+                                                      tmp_path: Path) -> None:
+    from tests.test_deck import slide_text
+    from pptx import Presentation
+
+    facts = build_facts(built, WEEK)
+    good = "\n".join(f"- {b}" for b in template_summary(facts, "en"))
+    files = build_report(built, settings, WEEK, "en", client=FakeLLM(good), out_dir=tmp_path, formats="pdf,pptx")
+    assert [p.name for p in files.written] == ["facts.json", "report.html", "report.pdf", "report.pptx"]
+    saved = json.loads(files.facts.read_text())
+    deck_summary = slide_text(Presentation(str(files.pptx)).slides[2])
+    for bullet in saved["ai_summary"]["bullets"]:
+        assert bullet in deck_summary and bullet in files.html.read_text()
+    assert "fake-model-1" in deck_summary

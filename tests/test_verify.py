@@ -388,3 +388,9 @@ def test_arabic_order_line_terminology(bullet: str, ok: bool) -> None:
 def test_arabic_prompt_names_the_order_line_term() -> None:
     prompt = files("p3.llm").joinpath("prompts", "language_ar.md").read_text(encoding="utf-8")
     assert "\u0628\u0646\u062f" in prompt and "على 20 بندًا" in prompt  # بند
+
+
+def test_bidi_embedding_marks_are_stripped_before_matching() -> None:
+    # The Arabic deck wraps numbers in U+202A ... U+202C so they stay in order inside RTL paragraphs.
+    assert normalize("‪-7,562.57 (-20.0%)‬") == "-7,562.57 (-20.0%)"
+    assert normalize("‫‭x‮") == "x"
