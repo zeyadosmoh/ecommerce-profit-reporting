@@ -364,13 +364,16 @@ statuses, plus a `unique_combination` test.
   with change and direction; the summary bullets; the profit bridge as tables; the three 8-week charts (the same
   matplotlib PNGs as the PDF, the only pictures); top/bottom product movers; missing cost and data quality. Same
   colors as the PDF. **Every slide has a "Synthetic data" footer**, so a single forwarded slide is still labelled.
-- **Arabic:** a paragraph's direction follows its content: with Arabic letters it is `rtl="1"`, without (KPI values,
-  change lines, SKU and product names, week ids, dates) it is `rtl="0"`; both are right-aligned. PowerPoint ignores
-  Unicode bidi control marks, so the deck uses none. Mixed lines are split instead: the week id has its own box in the
-  footer, "SKU — product" and dates are their own LTR paragraphs, and Arabic sentences keep only plain numbers (with
-  the Arabic comma "،"). Table columns are mirrored (labels on the right), and runs use Arial for Latin and complex
-  script (it ships with Windows and macOS and has Arabic glyphs). Digits stay Western as in the PDF. The AI bullets
-  are shown exactly as verified, so an SKU inside an Arabic AI sentence is left as the model wrote it.
+- **Arabic:** a paragraph's direction follows its content. With Arabic letters it is `rtl="1"` with Arabic-tagged
+  runs. Without (KPI values, change lines, SKU and product names, week ids, numeric cells) it is `rtl="0"`, its runs
+  are tagged `en-US`, and its text starts and ends with U+200E (LEFT-TO-RIGHT MARK, a strong character). PowerPoint
+  lays out `%`, `+`, `-` and brackets by the run language, so `40.17%` came out as `%40.17` while those runs were
+  tagged Arabic. Embedding controls (U+202A–E, U+2066–9) are never used: PowerPoint ignores them. Mixed lines are
+  split instead: the week id has its own small box in the footer, "SKU — product" is its own LTR line, and Arabic
+  sentences keep only plain numbers and dates (with the Arabic comma "،"). Everything is right-aligned except numeric
+  table cells. Table columns are mirrored (labels on the right), and runs use Arial for Latin and complex script (it
+  ships with Windows and macOS and has Arabic glyphs). Digits stay Western as in the PDF. The AI bullets are shown
+  exactly as verified, so an SKU inside an Arabic AI sentence is left as the model wrote it.
 - **Two missing-cost amounts, both labelled:** the warning box shows the revenue excluded from profit on the bridge
   basis (this week's sales minus refunds paid this week, SAR 1,666.03 for W45). The data-quality table counts by
   order week (the 20 lines sold this week after their refunds, SAR 1,717.33). The difference is a refund paid this

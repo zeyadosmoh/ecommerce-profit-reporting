@@ -30,3 +30,6 @@ logs/
 
 # generated reports (a committed sample lives in docs/sample-report/)
 reports/
+
+# Office lock files (e.g. a sample deck open in PowerPoint)
+~$*
